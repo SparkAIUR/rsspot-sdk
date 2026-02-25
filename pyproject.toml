@@ -1,17 +1,30 @@
-[build-system]
-requires = ["hatchling>=1.27.0"]
-build-backend = "hatchling.build"
-
 [project]
 name = "rsspot"
 version = "0.1.0"
 description = "Async-first Python SDK and CLI for Rackspace Spot"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
-  { name = "Halceon" }
+  { name = "Tri Nguyen", email = "tnguyen@nu-devco.com" },
+  { name = "AIUR", email = "aiur@sparkenergy.com" },
 ]
+keywords = ["rackspace", "spot", "sdk", "async", "api"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Typing :: Typed",
+  "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/SparkAIUR/rsspot-sdk"
+Documentation = "https://github.com/SparkAIUR/rsspot-sdk"
+Repository = "https://github.com/SparkAIUR/rsspot-sdk"
+Issues = "https://github.com/SparkAIUR/rsspot-sdk/issues"
+
 dependencies = [
   "httpx>=0.28.1",
   "pydantic>=2.11.0",
@@ -31,6 +44,11 @@ dev = [
   "mypy>=1.15.0",
   "types-pyyaml>=6.0.12.20250915",
 ]
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
 
 [project.scripts]
 rsspot = "rsspot.cli:app"

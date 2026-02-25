@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  security:
+    name: Pre-release security scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # - name: Run security scan
+      #   run: uv run --python 3.12 python tools/security_scan.py --mode all --report /tmp/secrets-report.json
+
+      # - name: Upload security report
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: release-secrets-report
+      #     path: /tmp/secrets-report.json
+
+  pypi:
+    name: Build and Publish to PyPI
+    needs: security
+    runs-on: ubuntu-latest
+    environment:
+      # Create this environment in the GitHub repository under Settings -> Environments
+      name: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish
