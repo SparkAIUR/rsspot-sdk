@@ -18,13 +18,6 @@ classifiers = [
   "Typing :: Typed",
   "Topic :: Software Development :: Libraries",
 ]
-
-[project.urls]
-Homepage = "https://github.com/SparkAIUR/rsspot-sdk"
-Documentation = "https://github.com/SparkAIUR/rsspot-sdk"
-Repository = "https://github.com/SparkAIUR/rsspot-sdk"
-Issues = "https://github.com/SparkAIUR/rsspot-sdk/issues"
-
 dependencies = [
   "httpx>=0.28.1",
   "pydantic>=2.11.0",
@@ -35,6 +28,12 @@ dependencies = [
   "typer>=0.15.2",
   "rich>=13.9.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SparkAIUR/rsspot-sdk"
+Documentation = "https://github.com/SparkAIUR/rsspot-sdk"
+Repository = "https://github.com/SparkAIUR/rsspot-sdk"
+Issues = "https://github.com/SparkAIUR/rsspot-sdk/issues"
 
 [project.optional-dependencies]
 dev = [
