@@ -46,10 +46,10 @@ asyncio.run(main())
 ## CLI examples
 
 ```bash
-uv run rsspot configure --profile prod --org songzcorp --region us-central-dfw-1 --refresh-token "$SPOT_REFRESH_TOKEN"
+uv run rsspot configure --profile prod --org sparkai --region us-central-dfw-1 --refresh-token "$SPOT_REFRESH_TOKEN"
 uv run rsspot profiles list
 uv run rsspot server-classes list --region us-central-dfw-1 --output table
-uv run rsspot inventory vmcloudspaces --org songzcorp
+uv run rsspot inventory vmcloudspaces --org sparkai
 ```
 
 ## OpenAPI tracking

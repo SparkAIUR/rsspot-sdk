@@ -35,7 +35,7 @@ async def test_request_fetches_token_and_calls_api() -> None:
             assert request.headers.get("Authorization") == f"Bearer {future_token}"
             return httpx.Response(
                 200,
-                json={"organizations": [{"name": "songzcorp", "id": "org-gzvcn7fap0t1msep"}]},
+                json={"organizations": [{"name": "sparkai", "id": "org-gzvcn7fap0t1msep"}]},
             )
         return httpx.Response(404, json={"message": "not found"})
 
@@ -100,7 +100,7 @@ async def test_resolve_org_id_from_name() -> None:
         if request.url.path == "/apis/auth.ngpc.rxt.io/v1/organizations":
             return httpx.Response(
                 200,
-                json={"organizations": [{"name": "songzcorp", "id": "org-gzvcn7fap0t1msep"}]},
+                json={"organizations": [{"name": "sparkai", "id": "org-gzvcn7fap0t1msep"}]},
             )
         return httpx.Response(404, json={})
 
@@ -112,7 +112,7 @@ async def test_resolve_org_id_from_name() -> None:
             http_client=http_client,
             config_file="/nonexistent.yaml",
         )
-        org_id = await client.resolve_org_id("songzcorp")
+        org_id = await client.resolve_org_id("sparkai")
         assert org_id == "org-gzvcn7fap0t1msep"
 
 

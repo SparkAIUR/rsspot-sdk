@@ -11,7 +11,7 @@ Default file is `~/.spot_config` (extensionless files are auto-detected and writ
 ### Legacy flat shape
 
 ```yaml
-org: songzcorp
+org: sparkai
 region: us-central-dfw-1
 refreshToken: <token>
 accessToken: <optional-id-token>
@@ -23,7 +23,7 @@ accessToken: <optional-id-token>
 active_profile: prod
 profiles:
   prod:
-    org: songzcorp
+    org: sparkai
     region: us-central-dfw-1
     refreshToken: <token>
   staging:

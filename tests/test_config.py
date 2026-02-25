@@ -11,7 +11,7 @@ def test_load_extensionless_spot_config_yaml(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                "org: songzcorp",
+                "org: sparkai",
                 "refreshToken: token-123",
                 "accessToken: token-abc",
                 "region: us-central-dfw-1",
@@ -22,13 +22,13 @@ def test_load_extensionless_spot_config_yaml(tmp_path: Path) -> None:
     cfg = load_config(config_path)
     assert cfg.active_profile == "default"
     assert "default" in cfg.profiles
-    assert cfg.profiles["default"].org == "songzcorp"
+    assert cfg.profiles["default"].org == "sparkai"
 
 
 def test_legacy_flat_schema_normalized_to_default_profile() -> None:
-    cfg = SDKConfig.model_validate({"org": "songzcorp", "region": "us-central-dfw-1"})
+    cfg = SDKConfig.model_validate({"org": "sparkai", "region": "us-central-dfw-1"})
     assert cfg.active_profile == "default"
-    assert cfg.profiles["default"].org == "songzcorp"
+    assert cfg.profiles["default"].org == "sparkai"
 
 
 def test_dump_extensionless_defaults_to_yaml(tmp_path: Path) -> None:
@@ -38,7 +38,7 @@ def test_dump_extensionless_defaults_to_yaml(tmp_path: Path) -> None:
             "active_profile": "prod",
             "profiles": {
                 "prod": {
-                    "org": "songzcorp",
+                    "org": "sparkai",
                     "refreshToken": "token-123",
                     "region": "us-central-dfw-1",
                 }
