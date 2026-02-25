@@ -1,0 +1,6 @@
+{
+  "docsDir": "./docs",
+  "llms": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "batch_count": 6,
+  "batches": [
+    {
+      "changed_files": [],
+      "doc_targets": [
+        "./docs/modules/scripts.mdx"
+      ],
+      "id": "module:scripts",
+      "module": "scripts",
+      "owner": "subagent",
+      "priority": 5,
+      "type": "module-docs"
+    },
+    {
+      "changed_files": [],
+      "doc_targets": [
+        "./docs/modules/src.mdx"
+      ],
+      "id": "module:src",
+      "module": "src",
+      "owner": "subagent",
+      "priority": 5,
+      "type": "module-docs"
+    },
+    {
+      "changed_files": [],
+      "doc_targets": [
+        "./docs/modules/tests.mdx"
+      ],
+      "id": "module:tests",
+      "module": "tests",
+      "owner": "subagent",
+      "priority": 5,
+      "type": "module-docs"
+    },
+    {
+      "doc_targets": [
+        "./docs/docs.json",
+        "./docs/index.mdx"
+      ],
+      "id": "global:docs-index",
+      "owner": "orchestrator",
+      "priority": 50,
+      "type": "docs-index"
+    },
+    {
+      "doc_targets": [
+        ".github/workflows/docs-pages.yml",
+        ".github/workflows/docs-ci.yml"
+      ],
+      "id": "global:workflows",
+      "owner": "orchestrator",
+      "priority": 60,
+      "type": "workflow-sync"
+    },
+    {
+      "doc_targets": [
+        ".sparkify-docs/state.json",
+        ".sparkify-docs/batches.json"
+      ],
+      "id": "global:state",
+      "owner": "orchestrator",
+      "priority": 70,
+      "type": "state-write"
+    }
+  ],
+  "collision_policy": "single-owner-per-doc-path",
+  "mode": "full",
+  "module_batch_count": 3,
+  "recommended_subagents": 3,
+  "should_use_subagents": true,
+  "tie_break_rules": [
+    "orchestrator-owned batches always win",
+    "higher priority batch wins for same file",
+    "if priority ties, lexicographically smaller batch id wins"
+  ]
+}

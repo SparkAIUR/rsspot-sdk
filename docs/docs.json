@@ -1,0 +1,29 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "rsspot-sdk",
+  "navigation": [
+    {
+      "group": "Overview",
+      "pages": [
+        "index",
+        "getting-started",
+        "architecture"
+      ]
+    },
+    {
+      "group": "Modules",
+      "pages": [
+        "modules/scripts",
+        "modules/src",
+        "modules/tests"
+      ]
+    },
+    {
+      "group": "Operations",
+      "pages": [
+        "deployment",
+        "contributing"
+      ]
+    }
+  ]
+}

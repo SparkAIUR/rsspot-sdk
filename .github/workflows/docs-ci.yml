@@ -1,0 +1,43 @@
+# BEGIN SPARKIFY-DOCS MANAGED
+name: Docs CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'sparkify.config.json'
+      - '.github/workflows/docs-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'sparkify.config.json'
+      - '.github/workflows/docs-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  docs-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build docs
+        uses: SparkAIUR/sparkify@v1
+        with:
+          docs-dir: './docs'
+          site: ''
+          base: ''
+          strict: 'true'
+
+      - name: Verify dist output
+        shell: bash
+        run: |
+          test -f dist/index.html || (echo "dist/index.html missing" && exit 1)
+
+      - name: Run doctor
+        shell: bash
+        run: npx -y sparkify@latest doctor
+# END SPARKIFY-DOCS MANAGED

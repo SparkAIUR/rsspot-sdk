@@ -1,0 +1,48 @@
+# BEGIN SPARKIFY-DOCS MANAGED
+name: Docs Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'sparkify.config.json'
+      - '.github/workflows/docs-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build docs with sparkify action
+        uses: SparkAIUR/sparkify@v1
+        with:
+          docs-dir: './docs'
+          site: ''
+          base: ''
+          upload-pages-artifact: 'true'
+          deploy-pages: 'false'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+# END SPARKIFY-DOCS MANAGED
