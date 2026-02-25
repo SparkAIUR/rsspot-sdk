@@ -1,0 +1,112 @@
+`rsspot` resolves runtime settings from constructor arguments, environment variables, profile config, then hard defaults.
+
+## Config File Location and Formats
+
+Default file: `~/.spot_config`.
+
+Supported formats:
+- YAML (`.yaml`/`.yml`)
+- JSON (`.json`)
+- TOML (`.toml`)
+- Extensionless files (auto-detected: TOML -> YAML -> JSON)
+
+When writing, extensionless files are persisted as YAML and chmodded to `0600`.
+
+## Supported File Shapes
+
+### Legacy flat shape (auto-normalized)
+
+```yaml
+org: sparkai
+region: us-central-dfw-1
+refreshToken: <token>
+accessToken: <optional-id-token>
+```
+
+### Profile-aware shape (recommended)
+
+```yaml
+active_profile: prod
+profiles:
+  prod:
+    org: sparkai
+    region: us-central-dfw-1
+    refreshToken: <token>
+    baseUrl: https://spot.rackspace.com
+    oauthUrl: https://login.spot.rackspace.com
+  staging:
+    org: sparkai-staging
+    region: us-east-iad-1
+    refreshToken: <token>
+```
+
+## Field Aliases and Env Compatibility
+
+`rsspot` accepts both SDK-native and Rackspace-compatible aliases.
+
+| Concern | Accepted env vars |
+|---|---|
+| Config file | `RSSPOT_CONFIG_FILE`, `SPOT_CONFIG_FILE` |
+| Active profile | `RSSPOT_PROFILE`, `SPOT_PROFILE` |
+| Org selector | `RSSPOT_ORG`, `RACKSPACE_ORG`, `SPOT_ORG` |
+| Org id | `RSSPOT_ORG_ID`, `RSSPOT_ORGID`, `RACKSPACE_ORG_ID`, `SPOT_ORG_ID` |
+| Region | `RSSPOT_REGION`, `RACKSPACE_REGION`, `SPOT_REGION` |
+| Refresh token | `RSSPOT_REFRESH_TOKEN`, `RACKSPACE_REFRESH_TOKEN`, `SPOT_REFRESH_TOKEN` |
+| Access token seed | `RSSPOT_ACCESS_TOKEN`, `RACKSPACE_ACCESS_TOKEN`, `SPOT_ACCESS_TOKEN` |
+| Client id | `RSSPOT_CLIENT_ID`, `RACKSPACE_CLIENT_ID`, `RXTSPOT_CLIENT_ID` |
+| API base URL | `RSSPOT_BASE_URL`, `RACKSPACE_BASE_URL`, `SPOT_BASE_URL` |
+| OAuth base URL | `RSSPOT_OAUTH_URL`, `RACKSPACE_OAUTH_URL`, `SPOT_AUTH_URL` |
+| Retry tuning | `RSSPOT_MAX_RETRIES`, `SPOT_MAX_RETRIES`, `RSSPOT_RETRY_BACKOFF_FACTOR`, `SPOT_RETRY_BACKOFF_FACTOR` |
+
+## Resolution Precedence
+
+For `SpotClient(...)` construction, effective values resolve in this order:
+
+1. Explicit constructor args (`SpotClient(profile=..., org=..., refresh_token=...)`)
+2. Runtime env (`RuntimeSettings`, `RSSPOT_*` aliases)
+3. Selected profile in config file
+4. SDK defaults (`DEFAULT_BASE_URL`, `DEFAULT_OAUTH_URL`, retry defaults)
+
+Profile name selection resolves as:
+
+1. `profile=` argument
+2. `RSSPOT_PROFILE`/`SPOT_PROFILE`
+3. `active_profile` in config file
+4. fallback `default`
+
+## Profile Workflows
+
+```bash
+# create/update profile
+uv run rsspot configure --profile prod --org sparkai --region us-central-dfw-1 --refresh-token "$TOKEN"
+
+# inspect configured profiles
+uv run rsspot profiles list
+uv run rsspot profiles show prod
+
+# switch active profile
+uv run rsspot profiles use prod
+
+# delete profile
+uv run rsspot profiles delete staging
+```
+
+## Token Handling Practices
+
+- Prefer storing only `refreshToken` in config and let `rsspot` mint short-lived `id_token` on demand.
+- Use env vars for CI and ephemeral environments instead of persisting secrets to disk.
+- Rotate refresh tokens and avoid sharing profile files between users.
+- Keep config file permissions restricted (`0600`).
+
+## Quick Diagnostics
+
+```bash
+# which profile is active?
+uv run rsspot profiles list
+
+# inspect effective profile payload
+uv run rsspot profiles show
+
+# test auth + API reachability
+uv run rsspot organizations list --output yaml
+```

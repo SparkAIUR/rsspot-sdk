@@ -1,21 +1,29 @@
-<!-- sparkify-docs:managed -->
+Read this page when you need confidence boundaries before changing auth/config/client behavior.
 
-# Tests
+## Current Coverage
 
-## Purpose
+| Test file | Coverage focus |
+|---|---|
+| `tests/test_auth.py` | JWT decode and token-expiry behavior |
+| `tests/test_config.py` | Extensionless config parsing + legacy schema normalization |
+| `tests/test_client.py` | Authenticated request flow, retry on `5xx`, org resolution, singleton cache semantics |
 
-Explain the role of this module and its boundaries.
+## What Is Covered Well
 
-## Key Files
+- Token decoding/expiry logic used by auth refresh decisions
+- Config auto-detect behavior for `~/.spot_config`
+- Retry behavior and auth header propagation via `httpx.MockTransport`
+- Singleton client cache and registry reset behavior
 
-- `tests/test_auth.py`
-- `tests/test_client.py`
-- `tests/test_config.py`
+## Gaps To Be Aware Of
 
-## Contracts
+- CLI command parsing/validation is not directly unit-tested
+- Service-specific endpoint path coverage is implicit (via client tests), not exhaustive
+- Negative-path tests for malformed API payload shapes are limited
 
-Document APIs, data models, and integration points used by this module.
+## How To Add Tests Safely
 
-## Change Notes
-
-Update this section when behavior or dependencies change.
+1. Prefer focused unit tests for pure logic (`config`, `auth`, serializers).
+2. Use `httpx.MockTransport` for client/service behavior without network dependency.
+3. Add regression tests for every new endpoint adapter or retry/auth edge case.
+4. Keep tests deterministic (avoid real-time race assumptions and network calls).

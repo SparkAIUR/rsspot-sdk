@@ -1,16 +1,42 @@
-<!-- sparkify-docs:managed -->
+`rsspot` is an async-first Python SDK and CLI for Rackspace Spot. Use it to automate organization, cloudspace, inventory, pricing, and nodepool workflows with typed models and profile-aware auth.
 
-# rsspot-sdk
+## Capability Matrix
 
-Welcome to the developer documentation for `rsspot-sdk`.
+| Capability | What you get | Primary entrypoint |
+|---|---|---|
+| Local profile management | Multi-account config with active profile switching | `rsspot configure`, `rsspot profiles *` |
+| API automation via CLI | Direct task execution with json/yaml/table output modes | `rsspot <group> <command>` |
+| API automation via SDK | Async client with typed Pydantic response models | `SpotClient`, `get_client` |
+| Auth lifecycle | Lazy token refresh with retry-aware request flow | `SpotClient.authenticate()` |
+| Schema drift tracking | OpenAPI snapshot + generated operation index | `scripts/sync_openapi.py`, `scripts/generate_openapi_index.py` |
+| Docs publishing | Sparkify + GitHub Pages workflow | `.github/workflows/docs-pages.yml` |
 
-## What This Project Does
+## Quickstart
 
-`rsspot` is an async-first Python SDK and CLI for Rackspace Spot.
+```bash
+uv sync
+uv run rsspot configure \
+  --profile default \
+  --org <org-name> \
+  --region us-central-dfw-1 \
+  --refresh-token "$SPOT_REFRESH_TOKEN"
+uv run rsspot organizations list --output table
+```
 
-## Documentation Map
+## Choose Your Path
 
-- [Getting Started](/getting-started)
-- [Architecture](/architecture)
-- [Deployment](/deployment)
-- [Contributing](/contributing)
+- New user setup: [Getting Started](/getting-started)
+- Profile/env strategy: [Configuration](/configuration)
+- Integrating in Python services: [SDK Usage](/sdk-usage)
+- Task-oriented command recipes: [CLI Reference](/cli-reference)
+- Upstream API drift maintenance: [OpenAPI Lifecycle](/openapi)
+- Runtime internals and extension points: [Architecture](/architecture)
+- Failure diagnosis runbook: [Troubleshooting](/troubleshooting)
+- Docs publishing workflow: [Deployment](/deployment)
+
+## What This Docs Set Optimizes For
+
+- Fast onboarding from zero config to first successful API call
+- Repeatable multi-profile operations across environments
+- Predictable behavior under auth expiration and transient upstream failures
+- Source-backed implementation guidance for maintainers

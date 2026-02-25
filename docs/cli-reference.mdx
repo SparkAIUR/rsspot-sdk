@@ -1,0 +1,117 @@
+This reference is organized by operational tasks, not by implementation module.
+
+## Global Options
+
+Every command accepts:
+
+- `--profile`, `-p` profile name
+- `--config-file`, `-c` path override
+- `--output`, `-o` output mode (`json`, `yaml`, `table`)
+- `--version` print CLI version
+
+Example:
+
+```bash
+uv run rsspot --profile prod --output table organizations list
+```
+
+## Command Groups
+
+| Group | Purpose | High-value commands |
+|---|---|---|
+| `configure` | Write/update profile config | `configure --profile ...` |
+| `profiles` | Profile lifecycle management | `list`, `show`, `use`, `delete` |
+| `organizations` | Resolve orgs | `list`, `get <name_or_id>` |
+| `regions` | Region discovery | `list`, `get <name>` |
+| `server-classes` | Capacity SKUs | `list`, `get <name>` |
+| `pricing` | Price-focused views | `list`, `get <server_class>` |
+| `cloudspaces` | Cloudspace CRUD + kubeconfig | `list`, `create`, `delete`, `get-config` |
+| `inventory` | VM cloudspace/pool/event inventory | `vmcloudspaces`, `vmpools`, `events` |
+| `nodepools spot` | Spot pool CRUD | `list`, `create`, `update`, `delete` |
+| `nodepools ondemand` | On-demand pool CRUD | `list`, `create`, `update`, `delete` |
+| `raw` | Arbitrary API passthrough | `raw --method --path ...` |
+
+## Task Recipes
+
+### Configure and switch profiles
+
+```bash
+uv run rsspot configure --profile prod --org sparkai --region us-central-dfw-1 --refresh-token "$TOKEN"
+uv run rsspot configure --profile staging --org sparkai-staging --region us-east-iad-1 --refresh-token "$TOKEN2"
+uv run rsspot profiles use prod
+```
+
+### Inspect organization and region context
+
+```bash
+uv run rsspot organizations list --output table
+uv run rsspot organizations get sparkai --output yaml
+uv run rsspot regions list --output table
+```
+
+### Create a cloudspace and fetch kubeconfig
+
+```bash
+uv run rsspot cloudspaces create --name demo-cs --region us-central-dfw-1 --org sparkai
+uv run rsspot cloudspaces get-config demo-cs --org sparkai --file ./kubeconfigs/demo-cs.yaml
+```
+
+### Manage a spot nodepool
+
+```bash
+uv run rsspot nodepools spot create \
+  --name spot-workers \
+  --cloudspace demo-cs \
+  --server-class gp.4x8 \
+  --bid-price 0.08 \
+  --desired 3 \
+  --autoscaling \
+  --autoscaling-min 1 \
+  --autoscaling-max 6 \
+  --label team=platform
+```
+
+```bash
+uv run rsspot nodepools spot update \
+  --name spot-workers \
+  --cloudspace demo-cs \
+  --server-class gp.4x8 \
+  --bid-price 0.09 \
+  --desired 4
+```
+
+### Query inventory events
+
+```bash
+uv run rsspot inventory events --limit 200 --output table
+```
+
+## Output Modes
+
+`rsspot` supports three output modes from the same command:
+
+- `json`: structured machine-readable output
+- `yaml`: readable config-style output
+- `table`: terminal summary rendering via `rich`
+
+Use `json` for scripts and automation.
+
+## Raw API Passthrough
+
+```bash
+uv run rsspot raw \
+  --method GET \
+  --path /apis/ngpc.rxt.io/v1/regions
+```
+
+With query params/body JSON:
+
+```bash
+uv run rsspot raw \
+  --method POST \
+  --path /apis/ngpc.rxt.io/v1/some-endpoint \
+  --params-json '{"dryRun":true}' \
+  --body-json '{"spec":{"name":"demo"}}'
+```
+
+Validation note: `--params-json` and `--body-json` must decode to JSON objects.

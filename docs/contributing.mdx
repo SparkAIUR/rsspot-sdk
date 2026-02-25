@@ -1,17 +1,34 @@
-<!-- sparkify-docs:managed -->
+Contributions should keep SDK behavior, CLI UX, and docs in sync.
 
-# Contributing
+## Contribution Checklist
 
-## Development Standards
+1. Implement code change in `src/rsspot/*` with typed models/services as needed.
+2. Update docs pages impacted by user-visible behavior changes.
+3. Add or extend tests in `tests/` for the changed behavior.
+4. Validate locally before opening PR.
 
-Document coding standards, testing requirements, and review expectations.
+## Local Validation Commands
 
-## Docs Update Process
+```bash
+uv run ruff check src tests
+uv run mypy src
+uv run pytest -q
+npx sparkify doctor
+```
 
-1. Update impacted docs pages.
-2. Run docs CI checks.
-3. Submit a PR with docs + code changes together.
+Use `npx sparkify dev` for docs UX checks and navigation verification.
 
-## Ownership
+## PR Expectations
 
-List code owners and where maintainers should be contacted.
+- Clear problem statement and behavior impact
+- Linked evidence (test updates, command output snippets, screenshots for docs UX changes)
+- No secret material in examples or committed config
+- Coherent API lifecycle updates when schema or endpoint behavior changes
+- For docs deployment behavior, keep [Deployment](/deployment) aligned with workflow changes.
+
+## Docs Standards For This Repo
+
+- Write task-oriented pages for external SDK users first.
+- Keep internals pages explicit about when maintainers should read them.
+- Keep commands copy/paste ready and mapped to real source behavior.
+- Use [Troubleshooting](/troubleshooting) for operational recovery guidance.

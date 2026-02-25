@@ -1,0 +1,66 @@
+Use this workflow to keep local API understanding aligned with Rackspace Spot upstream changes.
+
+## What Is Generated
+
+- `openapi/openapi.json`: full schema snapshot
+- `openapi/metadata.json`: source URL, fetch timestamp, version/title metadata
+- `src/rsspot/generated/openapi_index.py`: lightweight operation inventory (`OPERATIONS` list)
+
+## 1. Sync Schema Snapshot
+
+```bash
+uv run python scripts/sync_openapi.py
+```
+
+Optional controls:
+
+```bash
+uv run python scripts/sync_openapi.py \
+  --url https://spot.rackspace.com/openapi/v2 \
+  --out openapi/openapi.json \
+  --metadata openapi/metadata.json
+```
+
+Environment fallbacks used by `sync_openapi.py`:
+
+- URL priority: `--url` -> `RSSPOT_OPENAPI_URL` -> default candidates
+- Auth token: `RSSPOT_ACCESS_TOKEN` or `RACKSPACE_ACCESS_TOKEN`
+
+## 2. Rebuild Operation Index
+
+```bash
+uv run python scripts/generate_openapi_index.py
+```
+
+The script reads `paths` from the schema and writes an operation list with:
+
+- `operation_id` (or generated fallback)
+- `method`
+- `path`
+- `summary`
+
+## 3. Review and Diff
+
+```bash
+git diff -- openapi/openapi.json openapi/metadata.json src/rsspot/generated/openapi_index.py
+```
+
+Recommended review checklist:
+
+1. New/removed paths and methods
+2. Renamed operation ids
+3. Endpoint semantics that require SDK model/service updates
+4. Backward-compatibility implications for CLI commands
+
+## Handling Upstream Breakage
+
+If sync fails or response shape changes:
+
+1. Retry with explicit `--url` and known-good token.
+2. Inspect response status/body from `sync_openapi.py` error output.
+3. Keep previous committed schema while investigating to avoid partial updates.
+4. Update service/model coverage only after schema diff is understood.
+
+## Maintainer Cadence
+
+Use this pipeline before releases and whenever Spot API behavior appears changed in production.

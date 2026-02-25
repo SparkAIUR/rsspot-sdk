@@ -1,0 +1,96 @@
+Use this page when integrating `rsspot` into Python services, workers, or automation scripts.
+
+## Client Construction Patterns
+
+| Pattern | Use when | Notes |
+|---|---|---|
+| `get_client(..., singleton=True)` (default) | Process-level reuse is desired | Cached by `(config_file, profile)` key |
+| `get_client(..., singleton=False)` | You need an isolated client | Creates a fresh `SpotClient` |
+| `SpotClient(...)` directly | Full explicit runtime control | Useful for dependency injection and tests |
+
+## Singleton vs Explicit Lifecycle
+
+### Singleton helper
+
+```python
+from rsspot import get_client
+
+client = get_client(profile="prod")
+orgs = await client.organizations.list()
+```
+
+Use `clear_client_cache()` to reset cached references and `aclose_all_clients()` when shutting down long-lived processes.
+
+### Explicit async lifecycle
+
+```python
+from rsspot.client import SpotClient
+
+async with SpotClient(profile="prod") as client:
+    classes = await client.server_classes.list(region="us-central-dfw-1")
+    print(classes[0].name)
+```
+
+`SpotClient` owns an `httpx.AsyncClient` unless you inject `http_client=`; call `aclose()` (or use `async with`) when you own lifecycle.
+
+## Organization Resolution Semantics
+
+`org` selectors can be either name (`sparkai`) or id (`org-...` / `org_...`).
+
+- `resolve_org_id()` behavior:
+  - id input is normalized (`org_abc` -> `org-abc`, lowercased)
+  - name input triggers organization lookup, then caches mapping
+- `resolve_org_name()` behavior:
+  - name input returns directly
+  - id input resolves and caches org name
+
+This means service calls that require namespace ids can accept human-friendly org names safely.
+
+## Auth + Retry Behavior
+
+Request flow in `_request_json()`:
+
+1. Add `Authorization: Bearer <id_token>` when authenticated request.
+2. Reuse existing token if JWT `exp` is still valid (with 60s skew).
+3. On `401/403`, force one refresh attempt.
+4. Retry transient failures (`429` and `5xx`) with exponential backoff:
+   - attempts = `max_retries + 1`
+   - delay = `retry_backoff_factor * 2^(attempt-1)`
+5. Raise typed errors on failure (`AuthError`, `APIError`, `RequestError`).
+
+## Error Handling Pattern
+
+```python
+from rsspot.errors import APIError, AuthError, ConfigError, RequestError
+
+try:
+    async with SpotClient(profile="prod") as client:
+        await client.inventory.list_organization_events(limit=50)
+except ConfigError as exc:
+    # missing profile / org selection
+    ...
+except AuthError as exc:
+    # refresh token missing/invalid or token endpoint failure
+    ...
+except APIError as exc:
+    # non-2xx upstream response with status + response body
+    ...
+except RequestError as exc:
+    # transport or payload decode failures
+    ...
+```
+
+## Service Surface
+
+`SpotClient` exposes typed service accessors:
+
+- `organizations`
+- `regions`
+- `server_classes`
+- `pricing`
+- `cloudspaces`
+- `spot_nodepools`
+- `ondemand_nodepools`
+- `inventory`
+
+Each method returns typed Pydantic models from `src/rsspot/models/*`.

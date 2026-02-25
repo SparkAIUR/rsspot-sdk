@@ -1,19 +1,74 @@
-<!-- sparkify-docs:managed -->
-
-# Getting Started
+This guide takes you from a clean clone to a verified first CLI call and first SDK call.
 
 ## Prerequisites
 
-- Install the runtime dependencies for this project.
-- Install `sparkify` for local docs generation: `npx sparkify --help`.
+- Python `>=3.11` (from `pyproject.toml`)
+- `uv` for env/dependency management
+- Rackspace Spot refresh token
+- Organization name (or org id like `org-...`) and target region
 
-## Local Docs Workflow
+## 1. Install Dependencies
 
-1. Install dependencies.
-2. Validate docs and configuration with `npx sparkify doctor`.
-3. Run local preview: `npx sparkify dev`.
-4. Build production docs: `npx sparkify build`.
+```bash
+uv sync
+```
 
-## Repository Quickstart
+## 2. Create a Profile
 
-Document the minimum steps required to run, test, and contribute to this codebase.
+```bash
+uv run rsspot configure \
+  --profile default \
+  --org <org-name> \
+  --region us-central-dfw-1 \
+  --refresh-token "$SPOT_REFRESH_TOKEN"
+```
+
+What this writes:
+- Config file: `~/.spot_config` unless `--config-file` or env override is used
+- Profile payload stored under `profiles.default`
+- `active_profile` set to `default` unless `--no-activate`
+
+## 3. Verify CLI Access
+
+```bash
+uv run rsspot organizations list --output table
+uv run rsspot regions list --output table
+```
+
+Expected outcome:
+- `organizations list` returns at least one org row
+- `regions list` returns one or more region summaries
+
+## 4. Verify SDK Access
+
+```python
+import asyncio
+from rsspot import get_client
+
+
+async def main() -> None:
+    async with get_client(profile="default", singleton=False) as client:
+        regions = await client.regions.list()
+        print([region.name for region in regions[:3]])
+
+
+asyncio.run(main())
+```
+
+## 5. Success Checks
+
+Run these checks before adopting `rsspot` in a pipeline:
+
+```bash
+uv run rsspot --version
+uv run rsspot profiles list
+uv run rsspot pricing list --region us-central-dfw-1 --output json
+```
+
+If one fails, jump to [Troubleshooting](/troubleshooting).
+
+## Next Steps
+
+- For config precedence and env aliases: [Configuration](/configuration)
+- For SDK lifecycle patterns: [SDK Usage](/sdk-usage)
+- For ready-to-run CLI workflows: [CLI Reference](/cli-reference)

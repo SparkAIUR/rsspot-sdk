@@ -1,0 +1,164 @@
+{
+  "index": {
+    "sources": [
+      "README.md",
+      "pyproject.toml",
+      "src/rsspot/__init__.py",
+      ".github/workflows/docs-pages.yml"
+    ],
+    "facts": [
+      "project purpose and quickstart",
+      "async SDK + CLI positioning",
+      "docs publishing path"
+    ]
+  },
+  "getting-started": {
+    "sources": [
+      "README.md",
+      "src/rsspot/cli.py",
+      "src/rsspot/config/manager.py"
+    ],
+    "facts": [
+      "configure command options",
+      "profile activation behavior",
+      "first command verification path"
+    ]
+  },
+  "configuration": {
+    "sources": [
+      "src/rsspot/config/loader.py",
+      "src/rsspot/config/models.py",
+      "src/rsspot/settings.py",
+      "src/rsspot/constants.py",
+      "tests/test_config.py"
+    ],
+    "facts": [
+      "format support and extensionless auto-detect",
+      "legacy schema normalization",
+      "env alias table and precedence"
+    ]
+  },
+  "sdk-usage": {
+    "sources": [
+      "src/rsspot/client.py",
+      "src/rsspot/auth.py",
+      "src/rsspot/errors.py",
+      "tests/test_client.py",
+      "tests/test_auth.py"
+    ],
+    "facts": [
+      "singleton cache semantics",
+      "token refresh and retry behavior",
+      "typed error handling"
+    ]
+  },
+  "cli-reference": {
+    "sources": [
+      "src/rsspot/cli.py",
+      "src/rsspot/utils/output.py",
+      "README.md"
+    ],
+    "facts": [
+      "global options and command groups",
+      "task recipes for cloudspaces/nodepools",
+      "output mode behavior"
+    ]
+  },
+  "openapi": {
+    "sources": [
+      "scripts/sync_openapi.py",
+      "scripts/generate_openapi_index.py",
+      "src/rsspot/generated/__init__.py"
+    ],
+    "facts": [
+      "schema sync inputs/outputs",
+      "operation index generation",
+      "diff workflow"
+    ]
+  },
+  "architecture": {
+    "sources": [
+      "src/rsspot/client.py",
+      "src/rsspot/settings.py",
+      "src/rsspot/services/__init__.py",
+      "src/rsspot/cli.py"
+    ],
+    "facts": [
+      "runtime data flow",
+      "config resolution order",
+      "cache and retry model"
+    ]
+  },
+  "modules/rsspot": {
+    "sources": [
+      "src/rsspot/client.py",
+      "src/rsspot/cli.py",
+      "src/rsspot/config/models.py",
+      "src/rsspot/services/*.py",
+      "src/rsspot/models/*.py"
+    ],
+    "facts": [
+      "domain boundaries",
+      "extension points",
+      "coupling notes"
+    ]
+  },
+  "modules/scripts": {
+    "sources": [
+      "scripts/sync_openapi.py",
+      "scripts/generate_openapi_index.py"
+    ],
+    "facts": [
+      "automation inputs/outputs",
+      "operational guardrails"
+    ]
+  },
+  "modules/tests": {
+    "sources": [
+      "tests/test_auth.py",
+      "tests/test_client.py",
+      "tests/test_config.py"
+    ],
+    "facts": [
+      "current coverage",
+      "known gaps",
+      "test authoring guidance"
+    ]
+  },
+  "deployment": {
+    "sources": [
+      ".github/workflows/docs-ci.yml",
+      ".github/workflows/docs-pages.yml",
+      "sparkify.config.json"
+    ],
+    "facts": [
+      "docs pipeline contract",
+      "pages artifact/deploy behavior"
+    ]
+  },
+  "troubleshooting": {
+    "sources": [
+      "src/rsspot/errors.py",
+      "src/rsspot/client.py",
+      "src/rsspot/config/manager.py",
+      "src/rsspot/cli.py"
+    ],
+    "facts": [
+      "error signatures",
+      "diagnostic commands",
+      "remediation steps"
+    ]
+  },
+  "contributing": {
+    "sources": [
+      "README.md",
+      "pyproject.toml",
+      ".github/workflows/docs-ci.yml"
+    ],
+    "facts": [
+      "validation commands",
+      "PR expectations",
+      "docs quality requirements"
+    ]
+  }
+}

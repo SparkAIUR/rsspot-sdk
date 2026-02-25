@@ -1,0 +1,39 @@
+Read this page when you are changing runtime behavior, adding API coverage, or debugging cross-layer coupling.
+
+## Domain Map
+
+| Area | Responsibility | Primary files |
+|---|---|---|
+| Config | File parsing, schema normalization, profile management | `config/loader.py`, `config/models.py`, `config/manager.py` |
+| Runtime settings | Env alias ingestion and fallback values | `settings.py`, `constants.py` |
+| Auth | JWT expiry decode + refresh decision logic | `auth.py` |
+| Core client | Request orchestration, retries, token refresh, org resolution | `client.py` |
+| Services | API-domain operations + endpoint paths | `services/*.py` |
+| Models | Typed API payload contracts | `models/*.py` |
+| CLI | User-facing command routing and option validation | `cli.py` |
+| Utility renderers | Serialization + output formatting | `utils/serialization.py`, `utils/output.py` |
+
+## High-Value Extension Points
+
+1. New endpoint coverage:
+   - Add/extend service method under `services/`
+   - Add typed model classes under `models/`
+   - Add CLI command wrapper when needed
+2. Auth/runtime behavior:
+   - Tune defaults in `constants.py`
+   - Add env aliases in `settings.py`
+3. Error semantics:
+   - Preserve `RSSpotError` hierarchy for stable caller handling
+
+## Coupling Notes
+
+- Services depend on `SpotClient._request_json()` contract (JSON object expected).
+- CLI command output depends on `to_plain_data()` normalization before renderer formatting.
+- Config alias handling relies on `pydantic` `AliasChoices`; introducing new keys should update both models and docs.
+
+## Navigation For Maintainers
+
+- Auth issues: `src/rsspot/auth.py`, `src/rsspot/client.py`
+- Profile file parsing issues: `src/rsspot/config/loader.py`, `src/rsspot/config/models.py`
+- CLI parsing/flags: `src/rsspot/cli.py`
+- Endpoint request shape mismatches: corresponding file in `src/rsspot/services/`

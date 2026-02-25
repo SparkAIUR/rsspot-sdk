@@ -7,21 +7,35 @@
       "pages": [
         "index",
         "getting-started",
-        "architecture"
+        "configuration"
       ]
     },
     {
-      "group": "Modules",
+      "group": "Usage",
       "pages": [
+        "sdk-usage",
+        "cli-reference"
+      ]
+    },
+    {
+      "group": "API Lifecycle",
+      "pages": [
+        "openapi"
+      ]
+    },
+    {
+      "group": "Internals",
+      "pages": [
+        "architecture",
+        "modules/rsspot",
         "modules/scripts",
-        "modules/src",
         "modules/tests"
       ]
     },
     {
       "group": "Operations",
       "pages": [
-        "deployment",
+        "troubleshooting",
         "contributing"
       ]
     }

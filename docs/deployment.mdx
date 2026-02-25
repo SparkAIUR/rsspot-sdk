@@ -1,15 +1,34 @@
-<!-- sparkify-docs:managed -->
+This page documents the docs pipeline contract for publishing `rsspot-sdk` docs to GitHub Pages.
 
-# Deployment
+## Local Docs Validation
 
-## Environments
+```bash
+npx sparkify doctor
+npx sparkify dev
+```
 
-Document local, staging, and production expectations.
+When production build dependencies are healthy:
 
-## Build and Release
+```bash
+npx sparkify build --site https://sparkaiur.github.io --base /rsspot-sdk
+```
 
-Use `sparkify` in CI to compile docs and publish to GitHub Pages.
+## GitHub Workflow Contract
 
-## Operational Notes
+- CI validation: `.github/workflows/docs-ci.yml`
+- Pages publish: `.github/workflows/docs-pages.yml`
+- Reusable action: `uses: SparkAIUR/sparkify@v1`
 
-Include rollback, observability, and incident response pointers.
+`docs-pages.yml` behavior:
+
+1. Build job checks out repo and runs Sparkify action
+2. Build uploads Pages artifact
+3. Deploy job publishes artifact with `actions/deploy-pages`
+
+## Verification Checklist
+
+1. Confirm latest `docs-pages` run succeeded
+2. Open homepage and one nested route
+3. Verify search and sidebar navigation
+4. Verify llms copy widget appears on docs pages
+5. Confirm `llms.txt` and `llms-full.txt` are reachable

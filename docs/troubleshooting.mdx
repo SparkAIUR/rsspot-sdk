@@ -1,0 +1,60 @@
+Use this page when `rsspot` commands or SDK calls fail in local dev or CI.
+
+## Common Failures
+
+| Symptom | Likely cause | Remediation |
+|---|---|---|
+| `profile '<name>' not found` | Missing profile in selected config file | Run `rsspot configure --profile <name> ...` or switch with `rsspot profiles use` |
+| `organization is required` | No org in args/env/profile | Set `--org` or configure profile `org`/`org_id` |
+| `refresh_token is required to authenticate` | Access token expired and no refresh token available | Add `refreshToken` to profile or set `RSSPOT_REFRESH_TOKEN` |
+| `authentication failed with status ...` | Invalid refresh token/client id or oauth endpoint mismatch | Verify token, `client_id`, and `oauth_url` settings |
+| `request failed after retries` | Repeated transport errors or upstream instability | Increase timeout/retry settings, validate network/path |
+| `params-json must be a JSON object` | Invalid `raw` JSON payload type | Pass valid object JSON: `'{"key":"value"}'` |
+
+## First-Line Diagnostics
+
+```bash
+# check active profile and configured values
+uv run rsspot profiles list
+uv run rsspot profiles show
+
+# validate org/auth path quickly
+uv run rsspot organizations list --output yaml
+
+# confirm region and pricing endpoints
+uv run rsspot regions list --output table
+uv run rsspot pricing list --region us-central-dfw-1 --output table
+```
+
+## Configuration Path Checks
+
+```bash
+# override config file explicitly
+uv run rsspot --config-file ./local.spot.yaml profiles list
+
+# use env aliases for CI
+export RSSPOT_PROFILE=prod
+export RSSPOT_CONFIG_FILE=/path/to/.spot_config
+```
+
+## API Drift Checks
+
+If commands started failing after upstream API changes:
+
+```bash
+uv run python scripts/sync_openapi.py
+uv run python scripts/generate_openapi_index.py
+git diff -- openapi src/rsspot/generated/openapi_index.py
+```
+
+Then validate affected service methods under `src/rsspot/services/`.
+
+## Escalation Data To Capture
+
+Before opening an issue/PR, capture:
+
+1. failing command and exact args
+2. output mode used (`json`/`yaml`/`table`)
+3. profile/env context (redact secrets)
+4. relevant API status/body
+5. schema/index diff if issue is endpoint-related
