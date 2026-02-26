@@ -44,25 +44,39 @@ Within selected config/profile, effective runtime values resolve as:
 
 ## Config Model (v2)
 
-Example:
+The expected schema is the same for `config.yaml`, `config.toml`, and `config.json`.
+
+### `config.yaml`
 
 ```yaml
 version: "2"
 default_profile: prod
 active_profile: prod
+state_path: /Users/you/.config/rsspot/state.db
 
 profiles:
   prod:
     org: sparkai
     region: us-central-dfw-1
-    refreshToken: <token>
-    baseUrl: https://spot.rackspace.com
-    oauthUrl: https://login.spot.rackspace.com
+    refresh_token: replace-me
+    base_url: https://spot.rackspace.com
+    oauth_url: https://spot.rackspace.com
+    request_timeout_seconds: 30
+    verify_ssl: true
     retry:
       max_attempts: 4
       base_delay: 0.2
       max_delay: 2.5
       jitter: 0.2
+      retry_statuses: [429, 500, 502, 503, 504]
+    cache:
+      enabled: true
+      default_ttl: 5
+      max_entries: 1000
+      backend: sqlite
+      ttl_defaults:
+        GET:/apis/auth.ngpc.rxt.io/v1/organizations: 10
+        GET:/apis/ngpc.rxt.io/v1/regions: 20
 
 preferences:
   default_profile: prod
@@ -73,13 +87,143 @@ preferences:
   profile_regions:
     prod: us-central-dfw-1
 
-cache:
-  enabled: true
-  max_entries: 1000
-
 retry:
   max_attempts: 4
+  base_delay: 0.2
+  max_delay: 2.5
+  jitter: 0.2
+
+cache:
+  enabled: true
+  default_ttl: 5
+  max_entries: 1000
+  backend: sqlite
 ```
+
+### `config.toml`
+
+```toml
+version = "2"
+default_profile = "prod"
+active_profile = "prod"
+state_path = "/Users/you/.config/rsspot/state.db"
+
+[profiles.prod]
+org = "sparkai"
+region = "us-central-dfw-1"
+refresh_token = "replace-me"
+base_url = "https://spot.rackspace.com"
+oauth_url = "https://spot.rackspace.com"
+request_timeout_seconds = 30
+verify_ssl = true
+
+[profiles.prod.retry]
+max_attempts = 4
+base_delay = 0.2
+max_delay = 2.5
+jitter = 0.2
+retry_statuses = [429, 500, 502, 503, 504]
+
+[profiles.prod.cache]
+enabled = true
+default_ttl = 5
+max_entries = 1000
+backend = "sqlite"
+
+[profiles.prod.cache.ttl_defaults]
+"GET:/apis/auth.ngpc.rxt.io/v1/organizations" = 10
+"GET:/apis/ngpc.rxt.io/v1/regions" = 20
+
+[preferences]
+default_profile = "prod"
+default_org = "sparkai"
+default_region = "us-central-dfw-1"
+
+[preferences.profile_orgs]
+prod = "sparkai"
+
+[preferences.profile_regions]
+prod = "us-central-dfw-1"
+
+[retry]
+max_attempts = 4
+base_delay = 0.2
+max_delay = 2.5
+jitter = 0.2
+
+[cache]
+enabled = true
+default_ttl = 5
+max_entries = 1000
+backend = "sqlite"
+```
+
+### `config.json`
+
+```json
+{
+  "version": "2",
+  "default_profile": "prod",
+  "active_profile": "prod",
+  "state_path": "/Users/you/.config/rsspot/state.db",
+  "profiles": {
+    "prod": {
+      "org": "sparkai",
+      "region": "us-central-dfw-1",
+      "refresh_token": "replace-me",
+      "base_url": "https://spot.rackspace.com",
+      "oauth_url": "https://spot.rackspace.com",
+      "request_timeout_seconds": 30,
+      "verify_ssl": true,
+      "retry": {
+        "max_attempts": 4,
+        "base_delay": 0.2,
+        "max_delay": 2.5,
+        "jitter": 0.2,
+        "retry_statuses": [429, 500, 502, 503, 504]
+      },
+      "cache": {
+        "enabled": true,
+        "default_ttl": 5,
+        "max_entries": 1000,
+        "backend": "sqlite",
+        "ttl_defaults": {
+          "GET:/apis/auth.ngpc.rxt.io/v1/organizations": 10,
+          "GET:/apis/ngpc.rxt.io/v1/regions": 20
+        }
+      }
+    }
+  },
+  "preferences": {
+    "default_profile": "prod",
+    "default_org": "sparkai",
+    "default_region": "us-central-dfw-1",
+    "profile_orgs": {
+      "prod": "sparkai"
+    },
+    "profile_regions": {
+      "prod": "us-central-dfw-1"
+    }
+  },
+  "retry": {
+    "max_attempts": 4,
+    "base_delay": 0.2,
+    "max_delay": 2.5,
+    "jitter": 0.2
+  },
+  "cache": {
+    "enabled": true,
+    "default_ttl": 5,
+    "max_entries": 1000,
+    "backend": "sqlite"
+  }
+}
+```
+
+Notes:
+- `profiles.<name>` contains profile-specific values; these are what you usually vary by environment.
+- Top-level `retry` and `cache` apply globally and can be overridden per profile.
+- Legacy aliases (`refreshToken`, `clientId`, `baseUrl`, etc.) are accepted for compatibility.
 
 ## Environment Variables
 

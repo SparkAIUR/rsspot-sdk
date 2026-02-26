@@ -86,6 +86,123 @@ Resolution precedence:
 4. Default search in `~/.config/rsspot/config.{yml,yaml,toml,json}`
 5. Legacy fallback `~/.spot_config` (auto-migrated)
 
+Expected schema is identical across `config.yaml`, `config.toml`, and `config.json`.
+
+### `config.yaml`
+
+```yaml
+version: "2"
+default_profile: prod
+active_profile: prod
+state_path: /Users/you/.config/rsspot/state.db
+
+profiles:
+  prod:
+    org: sparkai
+    region: us-central-dfw-1
+    refresh_token: replace-me
+    base_url: https://spot.rackspace.com
+    oauth_url: https://spot.rackspace.com
+    request_timeout_seconds: 30
+    verify_ssl: true
+
+preferences:
+  default_profile: prod
+  default_org: sparkai
+  default_region: us-central-dfw-1
+
+retry:
+  max_attempts: 4
+  base_delay: 0.2
+  max_delay: 2.5
+  jitter: 0.2
+
+cache:
+  enabled: true
+  default_ttl: 5
+  max_entries: 1000
+  backend: sqlite
+```
+
+### `config.toml`
+
+```toml
+version = "2"
+default_profile = "prod"
+active_profile = "prod"
+state_path = "/Users/you/.config/rsspot/state.db"
+
+[profiles.prod]
+org = "sparkai"
+region = "us-central-dfw-1"
+refresh_token = "replace-me"
+base_url = "https://spot.rackspace.com"
+oauth_url = "https://spot.rackspace.com"
+request_timeout_seconds = 30
+verify_ssl = true
+
+[preferences]
+default_profile = "prod"
+default_org = "sparkai"
+default_region = "us-central-dfw-1"
+
+[retry]
+max_attempts = 4
+base_delay = 0.2
+max_delay = 2.5
+jitter = 0.2
+
+[cache]
+enabled = true
+default_ttl = 5
+max_entries = 1000
+backend = "sqlite"
+```
+
+### `config.json`
+
+```json
+{
+  "version": "2",
+  "default_profile": "prod",
+  "active_profile": "prod",
+  "state_path": "/Users/you/.config/rsspot/state.db",
+  "profiles": {
+    "prod": {
+      "org": "sparkai",
+      "region": "us-central-dfw-1",
+      "refresh_token": "replace-me",
+      "base_url": "https://spot.rackspace.com",
+      "oauth_url": "https://spot.rackspace.com",
+      "request_timeout_seconds": 30,
+      "verify_ssl": true
+    }
+  },
+  "preferences": {
+    "default_profile": "prod",
+    "default_org": "sparkai",
+    "default_region": "us-central-dfw-1"
+  },
+  "retry": {
+    "max_attempts": 4,
+    "base_delay": 0.2,
+    "max_delay": 2.5,
+    "jitter": 0.2
+  },
+  "cache": {
+    "enabled": true,
+    "default_ttl": 5,
+    "max_entries": 1000,
+    "backend": "sqlite"
+  }
+}
+```
+
+Notes:
+- `profiles.<name>` is where profile-specific credentials/selectors live.
+- Top-level `retry`/`cache` are defaults; profile-level `retry`/`cache` can override them.
+- Legacy aliases like `refreshToken`, `clientId`, and `baseUrl` are still accepted.
+
 ## VM Registration Workflow Primitives
 
 `rsspot` includes registration state helpers for composing with external orchestrators (including separate `omni-sdk` scripts) without taking a direct dependency.
