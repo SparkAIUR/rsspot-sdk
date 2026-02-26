@@ -4,6 +4,26 @@ All notable changes to `rsspot` are documented in this file.
 
 The format is based on Keep a Changelog, and this project follows semantic versioning.
 
+## [Unreleased]
+
+## [0.3.0] - 2026-02-26
+
+### Added
+- `rsspot pricing build` command for multi-strategy pool/region recommendations with:
+  - `--nodes`, `--gen`, `--risk`, `--balanced`
+  - optional `--regions`, `--classes`, `--min-hour`, `--max-hour`, `--min-month`, `--max-month`
+- Internal pricing optimizer module (`src/rsspot/pricing_optimizer.py`) with:
+  - normalized CPU/RAM/price parsing
+  - derived capacity/value metrics using CPU, RAM, and generation multiplier
+  - structured scenario outputs for `max_performance`, `max_value`, and `balanced`
+
+### Changed
+- `rsspot pricing list` now supports:
+  - `--nodes` multiplier
+  - `--min-cpu`, `--max-cpu`, `--class`, `--gen` filters
+- `pricing list` and `pricing build` now default to rich table output unless `--output` is explicitly set to `json`/`yaml`.
+- CLI/docs examples updated for pricing filters and recommendation workflows.
+
 ## [0.2.0] - 2026-02-26
 
 ### Added

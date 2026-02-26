@@ -37,6 +37,25 @@ uv run rsspot configure \
 uv run rsspot organizations list --output table
 ```
 
+### Pricing Explorer + Builder
+
+```bash
+# default output is a rich table when --output is not explicitly set
+uv run rsspot pricing list --region us-central-dfw-1 --class gp,ch --min-cpu 4 --gen 2 --nodes 5
+
+# explicit machine-readable output stays json/yaml
+uv run rsspot -o json pricing list --class gp --max-cpu 8 --nodes 10
+
+# generate 3 recommendation strategies (max_performance, max_value, balanced)
+uv run rsspot pricing build --nodes 5 --risk med --classes gp,ch,mh
+
+# spread balanced strategy across multiple pools and constrain cluster hourly spend
+uv run rsspot pricing build --nodes 5 --balanced --risk low --max-hour 0.25
+
+# constrain by total cluster monthly spend
+uv run rsspot pricing build --nodes 5 --min-month 50 --max-month 180
+```
+
 ## Quickstart (SDK)
 
 ### Unified client

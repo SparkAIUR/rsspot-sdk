@@ -26,7 +26,7 @@ uv run rsspot --profile prod --output table organizations list
 | `organizations` | Resolve orgs | `list`, `get <name_or_id>` |
 | `regions` | Region discovery | `list`, `get <name>` |
 | `server-classes` | Capacity SKUs | `list`, `get <name>` |
-| `pricing` | Price-focused views | `list`, `get <server_class>` |
+| `pricing` | Price-focused views + recommendation builder | `list`, `get <server_class>`, `build` |
 | `cloudspaces` | Cloudspace CRUD + kubeconfig | `list`, `create`, `delete`, `get-config` |
 | `inventory` | VM cloudspace/pool/event inventory | `vmcloudspaces`, `vmpools`, `events` |
 | `nodepools spot` | Spot pool CRUD | `list`, `create`, `update`, `delete` |
@@ -78,6 +78,32 @@ uv run rsspot nodepools spot create \
 
 ```bash
 uv run rsspot inventory events --limit 200 --output table
+```
+
+### Explore pricing with filters
+
+```bash
+# rich table by default for pricing list/build if --output is not explicitly set
+uv run rsspot pricing list --region us-central-dfw-1 --class gp,ch --min-cpu 4 --gen 2 --nodes 5
+
+# explicit json/yaml output stays machine-readable
+uv run rsspot -o json pricing list --class gp --max-cpu 8 --nodes 10
+```
+
+### Build cost-efficient pool recommendations
+
+```bash
+# returns max_performance, max_value, and balanced scenarios
+uv run rsspot pricing build --nodes 5 --risk med --classes gp,ch,mh
+
+# spread balanced scenario across multiple pools (risk controls aggressiveness)
+uv run rsspot pricing build --nodes 5 --balanced --risk low
+
+# constrain total cluster hourly spend
+uv run rsspot pricing build --nodes 5 --min-hour 0.05 --max-hour 0.25
+
+# constrain total cluster monthly spend
+uv run rsspot pricing build --nodes 5 --min-month 50 --max-month 180
 ```
 
 ## Output Modes

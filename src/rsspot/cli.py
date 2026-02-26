@@ -5,9 +5,10 @@ import json
 import os
 from collections.abc import Coroutine
 from pathlib import Path
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, Literal, TypeVar
 
 import typer
+from click.core import ParameterSource
 from pydantic import SecretStr
 
 from rsspot.cli_history import HISTORY_MAX_ENTRIES, redact_argv, redacted_command
@@ -28,6 +29,14 @@ from rsspot.constants import DEFAULT_CLIENT_ID
 from rsspot.errors import RSSpotError
 from rsspot.models import CloudspaceCreateSpec, OnDemandNodePoolUpsert, SpotNodePoolUpsert
 from rsspot.models.nodepools import Autoscaling
+from rsspot.pricing_optimizer import (
+    build_recommendation,
+    filter_rows_for_list,
+    list_rows_payload,
+    normalize_pricing_items,
+    render_build_recommendation_table,
+    render_pricing_list_table,
+)
 from rsspot.utils.output import OutputFormat, emit
 from rsspot.utils.serialization import to_plain_data
 
@@ -66,10 +75,12 @@ class CLIState:
         profile: str | None,
         config_file: Path | None,
         output: OutputFormat,
+        output_explicit: bool,
     ) -> None:
         self.profile = profile
         self.config_file = config_file
         self.output = output
+        self.output_explicit = output_explicit
 
 
 T = TypeVar("T")
@@ -90,6 +101,12 @@ def _emit(value: Any, *, output: OutputFormat) -> None:
     emit(to_plain_data(value), output=output)
 
 
+def _pricing_output_mode(state: CLIState) -> OutputFormat:
+    if state.output_explicit:
+        return state.output
+    return "table"
+
+
 def _parse_key_values(entries: list[str]) -> dict[str, str]:
     parsed: dict[str, str] = {}
     for entry in entries:
@@ -102,7 +119,7 @@ def _parse_key_values(entries: list[str]) -> dict[str, str]:
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo("rsspot 0.2.0")
+        typer.echo("rsspot 0.3.0")
         raise typer.Exit()
 
 
@@ -188,7 +205,9 @@ def main(
 ) -> None:
     _ = version
     configure_client(config_path=config_file)
-    state = CLIState(profile=profile, config_file=config_file, output=output)
+    source = ctx.get_parameter_source("output")
+    output_explicit = source is not None and source is not ParameterSource.DEFAULT
+    state = CLIState(profile=profile, config_file=config_file, output=output, output_explicit=output_explicit)
     ctx.obj = state
     _record_history(ctx, state)
 
@@ -342,14 +361,39 @@ def server_classes_get(ctx: typer.Context, name: Annotated[str, typer.Argument()
 def pricing_list(
     ctx: typer.Context,
     region: Annotated[str | None, typer.Option(help="Filter by region")] = None,
+    nodes: Annotated[int, typer.Option("--nodes", min=1, help="Node multiplier for pricing display")] = 1,
+    min_cpu: Annotated[int | None, typer.Option("--min-cpu", help="Minimum vCPU")] = None,
+    max_cpu: Annotated[int | None, typer.Option("--max-cpu", help="Maximum vCPU")] = None,
+    class_filter: Annotated[
+        list[str] | None,
+        typer.Option("--class", help="Class filter(s), repeatable or comma-separated (gp,ch,mh)"),
+    ] = None,
+    gen: Annotated[int | None, typer.Option("--gen", min=1, max=2, help="Virtual generation filter")] = None,
 ) -> None:
     state = _state(ctx)
+    if min_cpu is not None and max_cpu is not None and min_cpu > max_cpu:
+        raise typer.BadParameter("--min-cpu cannot be greater than --max-cpu")
 
     async def run() -> Any:
         async with _make_client(state) as client:
             return await client.pricing.list(region=region)
 
-    _emit(_run(run()), output=state.output)
+    result = _run(run())
+    rows = normalize_pricing_items(result.items)
+    rows = filter_rows_for_list(
+        rows,
+        class_filters=class_filter,
+        gen=gen,
+        min_cpu=float(min_cpu) if min_cpu is not None else None,
+        max_cpu=float(max_cpu) if max_cpu is not None else None,
+    )
+
+    output_mode = _pricing_output_mode(state)
+    if output_mode in {"json", "yaml"}:
+        _emit(list_rows_payload(rows, nodes=nodes), output=output_mode)
+        return
+
+    render_pricing_list_table(rows, nodes=nodes)
 
 
 @pricing_app.command("get")
@@ -361,6 +405,72 @@ def pricing_get(ctx: typer.Context, server_class: Annotated[str, typer.Argument(
             return await client.pricing.for_server_class(server_class)
 
     _emit(_run(run()), output=state.output)
+
+
+@pricing_app.command("build")
+def pricing_build(
+    ctx: typer.Context,
+    nodes: Annotated[int, typer.Option("--nodes", min=1, help="Desired total node count")],
+    gen: Annotated[int | None, typer.Option("--gen", min=1, max=2, help="Virtual generation filter")] = None,
+    risk: Annotated[
+        Literal["low", "med", "high"],
+        typer.Option("--risk", help="Bid/risk tuning level"),
+    ] = "med",
+    balanced: Annotated[
+        bool,
+        typer.Option("--balanced/--single", help="Spread balanced strategy across multiple pools"),
+    ] = False,
+    regions: Annotated[
+        list[str] | None,
+        typer.Option("--regions", help="Region filter(s), repeatable or comma-separated"),
+    ] = None,
+    classes: Annotated[
+        list[str] | None,
+        typer.Option("--classes", help="Class filter(s), repeatable or comma-separated"),
+    ] = None,
+    min_hour: Annotated[float | None, typer.Option("--min-hour", min=0.0, help="Minimum cluster hourly spend")] = None,
+    max_hour: Annotated[float | None, typer.Option("--max-hour", min=0.0, help="Maximum cluster hourly spend")] = None,
+    min_month: Annotated[
+        float | None,
+        typer.Option("--min-month", min=0.0, help="Minimum cluster monthly spend"),
+    ] = None,
+    max_month: Annotated[
+        float | None,
+        typer.Option("--max-month", min=0.0, help="Maximum cluster monthly spend"),
+    ] = None,
+) -> None:
+    state = _state(ctx)
+    if min_hour is not None and max_hour is not None and min_hour > max_hour:
+        raise typer.BadParameter("--min-hour cannot be greater than --max-hour")
+    if min_month is not None and max_month is not None and min_month > max_month:
+        raise typer.BadParameter("--min-month cannot be greater than --max-month")
+
+    async def run() -> Any:
+        async with _make_client(state) as client:
+            return await client.pricing.list()
+
+    result = _run(run())
+    rows = normalize_pricing_items(result.items)
+    recommendation = build_recommendation(
+        rows,
+        nodes=nodes,
+        gen=gen,
+        risk=risk,
+        balanced=balanced,
+        regions=regions,
+        classes=classes,
+        min_hour=min_hour,
+        max_hour=max_hour,
+        min_month=min_month,
+        max_month=max_month,
+    )
+
+    output_mode = _pricing_output_mode(state)
+    if output_mode in {"json", "yaml"}:
+        _emit(recommendation, output=output_mode)
+        return
+
+    render_build_recommendation_table(recommendation)
 
 
 @cloudspaces_app.command("list")
