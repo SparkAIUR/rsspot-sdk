@@ -1,0 +1,16 @@
+Release history is tracked in the repository changelog.
+
+- Canonical changelog: [`CHANGELOG.md`](https://github.com/SparkAIUR/rsspot-sdk/blob/main/CHANGELOG.md)
+
+## Latest
+
+### 0.2.0 (2026-02-26)
+
+- Introduced unified `SpotClient` sync/async surface and new `AsyncSpotClient` async core.
+- Added sqlite-backed global persistence (`preferences`, `http_cache`, `command_history`, `registration_ledger`).
+- Added transport/cache/retry modules with configurable policy objects.
+- Added config precedence + canonical config path + legacy `~/.spot_config` migration.
+- Added VM registration workflow primitives (`RegistrationWorkflow`).
+- Added CLI config/history commands and secret redaction for persisted history/config output.
+
+For full details, see the repo changelog.

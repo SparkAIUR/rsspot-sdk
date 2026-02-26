@@ -1,64 +1,93 @@
-This page explains the runtime flow from CLI/SDK input to typed service responses.
+This page explains runtime flow from CLI/SDK input to typed service responses and persisted runtime state.
 
 ## Runtime Data Flow
 
 ```mermaid
 flowchart LR
-  A["CLI (Typer) or Python caller"] --> B["SpotClient"]
-  B --> C["Config resolution"]
-  B --> D["Auth/token lifecycle"]
-  B --> E["Service method"]
-  E --> F["HTTP request via httpx.AsyncClient"]
-  F --> G["Rackspace Spot APIs"]
-  G --> H["JSON response"]
-  H --> I["Pydantic model validation"]
-  I --> J["CLI output renderer or SDK return value"]
+  A["CLI (Typer) or Python caller"] --> B["SpotClient / AsyncSpotClient"]
+  B --> C["Config resolution + migration"]
+  B --> D["StateStore (sqlite)"]
+  B --> E["SpotTransport"]
+  E --> F["Auth/token lifecycle"]
+  E --> G["Retry + cache policies"]
+  G --> H["Rackspace Spot APIs"]
+  H --> I["JSON response"]
+  I --> J["Pydantic model validation"]
+  J --> K["CLI output renderer or SDK return value"]
 ```
 
-## Config Resolution Path
+## Package Layout
 
-`SpotClient.__init__` resolves settings in layered order:
+- `src/rsspot/client`
+  - `async_client.py`: async core runtime
+  - `sync_client.py`: unified sync/async wrapper
+  - `singleton.py`: global configure/singleton/context helpers
+- `src/rsspot/config`
+  - model definitions, loader precedence, legacy migration
+- `src/rsspot/state`
+  - sqlite-backed preferences/cache/history/registration ledger
+- `src/rsspot/http`
+  - transport, retry policy, cache policy
+- `src/rsspot/services`
+  - typed API domain facades
+- `src/rsspot/workflows`
+  - VM registration orchestration primitives
 
-1. Explicit constructor args
-2. `RuntimeSettings` environment aliases
-3. Selected profile from `ProfileManager`
-4. Constants defaults
+## Config and State Resolution
 
-Profile selection path:
-- explicit `profile`
-- env profile (`RSSPOT_PROFILE`/`SPOT_PROFILE`)
-- config `active_profile`
-- fallback `default`
+Config path resolution:
+1. Runtime config dict/model
+2. Explicit `config_path`
+3. Env path (`RSSPOT_CONFIG*`)
+4. Default `~/.config/rsspot/config.*`
+5. Legacy `~/.spot_config` migration fallback
 
-## Auth and Token Refresh Path
+State path resolution:
+1. Explicit `state_path`
+2. Config `state_path`
+3. `<resolved-config-dir>/state.db`
+4. `~/.config/rsspot/state.db` fallback
 
-- `authenticate()` reuses current `id_token` while unexpired (JWT `exp` with skew window)
-- On missing/expired token, client exchanges `refresh_token` at `<oauth_url>/oauth/token`
-- `_request_json()` retries once with forced refresh on `401`/`403`
+## Unified Client Contract
 
-## Request/Retry Model
+`SpotClient` provides:
+- sync grouped APIs: `organizations`, `regions`, `server_classes`, `pricing`, `cloudspaces`, `spot_nodepools`, `ondemand_nodepools`, `inventory`
+- async grouped APIs with `a` prefix: `aorganizations`, `aregions`, ...
 
-- Transport: `httpx.AsyncClient` with configured timeout and TLS verification
-- Transient retries: `429` and `5xx`
-- Retry count: `max_retries + 1` attempts
-- Backoff: exponential using `retry_backoff_factor`
-- Failure types:
-  - `APIError` for non-success HTTP responses
-  - `RequestError` for transport/JSON-shape issues
+Constraint:
+- Sync methods raise a runtime error when called inside an active event loop.
 
-## Caching Model
+## Retry, Auth, and Cache Model
 
-Two cache layers exist:
+- Auth token lifecycle:
+  - reuse valid id token
+  - refresh via `POST <oauth_url>/oauth/token` when needed
+- Retry policy:
+  - status- and exception-based retries with jittered backoff
+- Cache policy:
+  - GET-only caching by default
+  - in-memory front cache + sqlite backend
+  - mutation-triggered invalidation by API path prefix
 
-1. Process-level singleton cache (`get_client`) keyed by `(config_file, profile)`
-2. In-client org resolution cache (`name <-> org-id`) to avoid repeated org lookup calls
+## Persistent State Schema
 
-Use `aclose_all_clients()` on shutdown for long-lived processes.
+`state.db` tables:
+- `preferences`
+- `http_cache`
+- `command_history`
+- `registration_ledger`
 
-## Where To Extend
+## Extension Points
 
-- Add new API domains in `src/rsspot/services/*`
-- Introduce response/request models in `src/rsspot/models/*`
-- Expose new CLI workflows in `src/rsspot/cli.py`
+1. Add endpoint coverage:
+- add/extend method in `services/*`
+- add model in `models/*`
+- expose CLI command where needed
 
-Detailed module maps are in [rsspot internals](/modules/rsspot).
+2. Tune runtime behavior:
+- retry/cache defaults in config models
+- env aliases in `settings.py`
+
+3. Compose registration automation:
+- use `RegistrationWorkflow` + `StateStore`
+- orchestrate external Omni integration without direct dependency

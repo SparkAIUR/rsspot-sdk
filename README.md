@@ -1,58 +1,99 @@
 # rsspot
 
-`rsspot` is an async-first Python SDK and CLI for Rackspace Spot.
+`rsspot` is a Python SDK and CLI for Rackspace Spot with unified sync/async ergonomics, sqlite-backed runtime state, and profile-based configuration.
 
 ## Highlights
 
-- Async-native client built on `httpx.AsyncClient`
+- Unified client API:
+  - `SpotClient` for sync + async access on one object
+  - `AsyncSpotClient` for explicit async-only usage
+- Persistent sqlite state (`state.db`) for:
+  - defaults/preferences
+  - HTTP cache
+  - redacted CLI command history
+  - VM registration ledger entries
+- Config precedence + migration:
+  - new default path: `~/.config/rsspot/config.yml`
+  - legacy `~/.spot_config` auto-imported/migrated
 - Strong typing via `pydantic` models
-- Multi-account profile switching (`yaml` / `json` / `toml`)
-- Global singleton client (`get_client`) plus explicit clients
-- `uv`-managed project and tooling
+- Multi-profile workflows + global singleton helpers
 - OpenAPI sync/index scripts for upstream tracking
 
-## Quickstart
+## Install
 
 ```bash
 uv sync
+```
+
+## Quickstart (CLI)
+
+```bash
+uv run rsspot configure \
+  --profile default \
+  --org <org-name> \
+  --region us-central-dfw-1 \
+  --refresh-token "$SPOT_REFRESH_TOKEN"
+
 uv run rsspot organizations list --output table
 ```
 
-## Configuration
+## Quickstart (SDK)
 
-Default config path: `~/.spot_config`
+### Unified client
 
-Supports:
-- flat schema (`org`, `refreshToken`, `accessToken`, `region`)
-- profile schema (`active_profile`, `profiles.<name>.*`)
-- file formats: YAML / JSON / TOML (`~/.spot_config` extensionless is supported)
+```python
+from rsspot import SpotClient
 
-## Basic SDK usage
+client = SpotClient(profile="default")
+orgs = client.organizations.list()
+print([org.name for org in orgs.organizations])
+client.close()
+```
 
 ```python
 import asyncio
-from rsspot import get_client
-
+from rsspot import SpotClient
 
 async def main() -> None:
-    client = get_client(profile="default")
-    orgs = await client.organizations.list()
+    client = SpotClient(profile="default")
+    orgs = await client.aorganizations.list()
     print([org.name for org in orgs.organizations])
-
+    await client.aclose()
 
 asyncio.run(main())
 ```
 
-## CLI examples
+### Async-only client
 
-```bash
-uv run rsspot configure --profile prod --org sparkai --region us-central-dfw-1 --refresh-token "$SPOT_REFRESH_TOKEN"
-uv run rsspot profiles list
-uv run rsspot server-classes list --region us-central-dfw-1 --output table
-uv run rsspot inventory vmcloudspaces --org sparkai
+```python
+import asyncio
+from rsspot import AsyncSpotClient
+
+async def main() -> None:
+    async with AsyncSpotClient(profile="default") as client:
+        regions = await client.regions.list()
+        print([r.name for r in regions])
+
+asyncio.run(main())
 ```
 
-## OpenAPI tracking
+## Configuration
+
+Resolution precedence:
+1. Runtime config dict/model passed to client constructor
+2. Explicit `config_path=...`
+3. Env path (`RSSPOT_CONFIG`, `RSSPOT_CONFIG_FILE`, `SPOT_CONFIG_FILE`)
+4. Default search in `~/.config/rsspot/config.{yml,yaml,toml,json}`
+5. Legacy fallback `~/.spot_config` (auto-migrated)
+
+## VM Registration Workflow Primitives
+
+`rsspot` includes registration state helpers for composing with external orchestrators (including separate `omni-sdk` scripts) without taking a direct dependency.
+
+Core entrypoint:
+- `rsspot.workflows.RegistrationWorkflow`
+
+## OpenAPI Tracking
 
 ```bash
 uv run python scripts/sync_openapi.py
@@ -67,6 +108,6 @@ uv run mypy src
 uv run pytest -q
 ```
 
-Additional docs:
-- `docs/configuration.md`
-- `docs/openapi.md`
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).

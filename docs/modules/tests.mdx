@@ -1,29 +1,32 @@
-Read this page when you need confidence boundaries before changing auth/config/client behavior.
+Read this page when you need confidence boundaries before changing auth/config/client/state behavior.
 
 ## Current Coverage
 
 | Test file | Coverage focus |
 |---|---|
 | `tests/test_auth.py` | JWT decode and token-expiry behavior |
-| `tests/test_config.py` | Extensionless config parsing + legacy schema normalization |
-| `tests/test_client.py` | Authenticated request flow, retry on `5xx`, org resolution, singleton cache semantics |
+| `tests/test_config.py` | Config precedence, format support, legacy migration |
+| `tests/test_client.py` | Async transport flow, retry behavior, unified client behavior, singleton cache |
+| `tests/test_state.py` | sqlite history and registration-ledger persistence |
+| `tests/test_workflows_registration.py` | VM registration candidate generation and state transitions |
 
 ## What Is Covered Well
 
-- Token decoding/expiry logic used by auth refresh decisions
-- Config auto-detect behavior for `~/.spot_config`
+- Token decoding/expiry logic used by refresh decisions
+- Config precedence and legacy path migration into canonical config path
 - Retry behavior and auth header propagation via `httpx.MockTransport`
-- Singleton client cache and registry reset behavior
+- Unified client sync-in-async-loop guard behavior
+- sqlite history and registration-ledger upsert/retrieval semantics
 
-## Gaps To Be Aware Of
+## Gaps to Be Aware Of
 
-- CLI command parsing/validation is not directly unit-tested
-- Service-specific endpoint path coverage is implicit (via client tests), not exhaustive
-- Negative-path tests for malformed API payload shapes are limited
+- CLI command parsing/validation is not directly unit-tested end-to-end
+- Service-specific endpoint path coverage is representative, not exhaustive
+- Negative-path tests for malformed API payload shapes are still limited
 
-## How To Add Tests Safely
+## How to Add Tests Safely
 
-1. Prefer focused unit tests for pure logic (`config`, `auth`, serializers).
+1. Prefer focused unit tests for pure logic (`config`, `auth`, `state`, `workflows`).
 2. Use `httpx.MockTransport` for client/service behavior without network dependency.
 3. Add regression tests for every new endpoint adapter or retry/auth edge case.
-4. Keep tests deterministic (avoid real-time race assumptions and network calls).
+4. Keep tests deterministic (avoid network calls and timing races).

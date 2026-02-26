@@ -1,8 +1,8 @@
-This guide takes you from a clean clone to a verified first CLI call and first SDK call.
+This guide takes you from a clean clone to a verified first CLI and SDK call.
 
 ## Prerequisites
 
-- Python `>=3.11` (from `pyproject.toml`)
+- Python `>=3.11`
 - `uv` for env/dependency management
 - Rackspace Spot refresh token
 - Organization name (or org id like `org-...`) and target region
@@ -24,9 +24,12 @@ uv run rsspot configure \
 ```
 
 What this writes:
-- Config file: `~/.spot_config` unless `--config-file` or env override is used
-- Profile payload stored under `profiles.default`
-- `active_profile` set to `default` unless `--no-activate`
+- Canonical config path: `~/.config/rsspot/config.yml` (unless `--config-file` or env override is used)
+- Profile payload under `profiles.default`
+- `default_profile` and `active_profile` set to `default` (unless `--no-activate`)
+
+Legacy note:
+- Existing `~/.spot_config` is still read and will be auto-migrated.
 
 ## 3. Verify CLI Access
 
@@ -35,29 +38,35 @@ uv run rsspot organizations list --output table
 uv run rsspot regions list --output table
 ```
 
-Expected outcome:
-- `organizations list` returns at least one org row
-- `regions list` returns one or more region summaries
-
 ## 4. Verify SDK Access
+
+### Sync usage
+
+```python
+from rsspot import SpotClient
+
+client = SpotClient(profile="default")
+regions = client.regions.list()
+print([region.name for region in regions[:3]])
+client.close()
+```
+
+### Async usage on the same unified client
 
 ```python
 import asyncio
-from rsspot import get_client
-
+from rsspot import SpotClient
 
 async def main() -> None:
-    async with get_client(profile="default", singleton=False) as client:
-        regions = await client.regions.list()
-        print([region.name for region in regions[:3]])
-
+    client = SpotClient(profile="default")
+    regions = await client.aregions.list()
+    print([region.name for region in regions[:3]])
+    await client.aclose()
 
 asyncio.run(main())
 ```
 
 ## 5. Success Checks
-
-Run these checks before adopting `rsspot` in a pipeline:
 
 ```bash
 uv run rsspot --version
@@ -65,10 +74,9 @@ uv run rsspot profiles list
 uv run rsspot pricing list --region us-central-dfw-1 --output json
 ```
 
-If one fails, jump to [Troubleshooting](/troubleshooting).
-
 ## Next Steps
 
-- For config precedence and env aliases: [Configuration](/configuration)
-- For SDK lifecycle patterns: [SDK Usage](/sdk-usage)
-- For ready-to-run CLI workflows: [CLI Reference](/cli-reference)
+- Config precedence and env aliases: [Configuration](/configuration)
+- SDK lifecycle and singleton patterns: [SDK Usage](/sdk-usage)
+- CLI command matrix: [CLI Reference](/cli-reference)
+- Runtime internals: [Architecture](/architecture)

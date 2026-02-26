@@ -1,11 +1,11 @@
-This reference is organized by operational tasks, not by implementation module.
+This reference is organized by operational tasks.
 
 ## Global Options
 
 Every command accepts:
 
 - `--profile`, `-p` profile name
-- `--config-file`, `-c` path override
+- `--config-file`, `-c` config path override
 - `--output`, `-o` output mode (`json`, `yaml`, `table`)
 - `--version` print CLI version
 
@@ -21,6 +21,8 @@ uv run rsspot --profile prod --output table organizations list
 |---|---|---|
 | `configure` | Write/update profile config | `configure --profile ...` |
 | `profiles` | Profile lifecycle management | `list`, `show`, `use`, `delete` |
+| `config` | Persisted defaults + effective config inspection | `info`, `set-default-profile`, `set-default-org`, `set-default-region` |
+| `config history` | CLI history management | `info`, `clear` |
 | `organizations` | Resolve orgs | `list`, `get <name_or_id>` |
 | `regions` | Region discovery | `list`, `get <name>` |
 | `server-classes` | Capacity SKUs | `list`, `get <name>` |
@@ -33,20 +35,21 @@ uv run rsspot --profile prod --output table organizations list
 
 ## Task Recipes
 
-### Configure and switch profiles
+### Configure profiles and defaults
 
 ```bash
 uv run rsspot configure --profile prod --org sparkai --region us-central-dfw-1 --refresh-token "$TOKEN"
-uv run rsspot configure --profile staging --org sparkai-staging --region us-east-iad-1 --refresh-token "$TOKEN2"
 uv run rsspot profiles use prod
+uv run rsspot config set-default-profile prod
+uv run rsspot config set-default-org sparkai
+uv run rsspot config set-default-region us-central-dfw-1
 ```
 
-### Inspect organization and region context
+### Inspect effective config and history
 
 ```bash
-uv run rsspot organizations list --output table
-uv run rsspot organizations get sparkai --output yaml
-uv run rsspot regions list --output table
+uv run rsspot config info --output yaml
+uv run rsspot config history info
 ```
 
 ### Create a cloudspace and fetch kubeconfig
@@ -71,15 +74,6 @@ uv run rsspot nodepools spot create \
   --label team=platform
 ```
 
-```bash
-uv run rsspot nodepools spot update \
-  --name spot-workers \
-  --cloudspace demo-cs \
-  --server-class gp.4x8 \
-  --bid-price 0.09 \
-  --desired 4
-```
-
 ### Query inventory events
 
 ```bash
@@ -88,11 +82,9 @@ uv run rsspot inventory events --limit 200 --output table
 
 ## Output Modes
 
-`rsspot` supports three output modes from the same command:
-
-- `json`: structured machine-readable output
-- `yaml`: readable config-style output
-- `table`: terminal summary rendering via `rich`
+- `json`: machine-readable
+- `yaml`: config-style output
+- `table`: terminal summary via `rich`
 
 Use `json` for scripts and automation.
 

@@ -1,39 +1,47 @@
-Read this page when you are changing runtime behavior, adding API coverage, or debugging cross-layer coupling.
+Read this page when changing runtime behavior, adding API coverage, or debugging cross-layer coupling.
 
 ## Domain Map
 
 | Area | Responsibility | Primary files |
 |---|---|---|
-| Config | File parsing, schema normalization, profile management | `config/loader.py`, `config/models.py`, `config/manager.py` |
+| Config | File parsing, precedence, schema normalization, migration | `config/loader.py`, `config/models.py`, `config/manager.py` |
 | Runtime settings | Env alias ingestion and fallback values | `settings.py`, `constants.py` |
 | Auth | JWT expiry decode + refresh decision logic | `auth.py` |
-| Core client | Request orchestration, retries, token refresh, org resolution | `client.py` |
+| Client surfaces | Async core + unified sync/async wrapper + singleton/context helpers | `client/async_client.py`, `client/sync_client.py`, `client/singleton.py` |
+| Transport | Retry, cache, and HTTP request flow | `http/transport.py`, `http/retry.py`, `http/cache.py` |
+| Persistent state | sqlite preferences/cache/history/registration ledger | `state/store.py` |
 | Services | API-domain operations + endpoint paths | `services/*.py` |
 | Models | Typed API payload contracts | `models/*.py` |
+| Workflow primitives | VM registration orchestration state machine helpers | `workflows/registration.py` |
 | CLI | User-facing command routing and option validation | `cli.py` |
 | Utility renderers | Serialization + output formatting | `utils/serialization.py`, `utils/output.py` |
 
 ## High-Value Extension Points
 
 1. New endpoint coverage:
-   - Add/extend service method under `services/`
-   - Add typed model classes under `models/`
-   - Add CLI command wrapper when needed
-2. Auth/runtime behavior:
-   - Tune defaults in `constants.py`
-   - Add env aliases in `settings.py`
-3. Error semantics:
-   - Preserve `RSSpotError` hierarchy for stable caller handling
+- add/extend service method under `services/`
+- add typed model classes under `models/`
+- add CLI command wrapper when needed
+
+2. Runtime behavior tuning:
+- retry/cache defaults in `config/models.py`
+- env aliases in `settings.py`
+
+3. Persistence and automation:
+- add new preference keys in `StateStore`
+- extend registration ledger semantics in `workflows/registration.py`
 
 ## Coupling Notes
 
-- Services depend on `SpotClient._request_json()` contract (JSON object expected).
-- CLI command output depends on `to_plain_data()` normalization before renderer formatting.
-- Config alias handling relies on `pydantic` `AliasChoices`; introducing new keys should update both models and docs.
+- Services depend on `AsyncSpotClient._request_json()` contract (JSON object expected).
+- `SpotClient` sync wrappers depend on async coroutines; sync methods cannot run in an active event loop.
+- CLI history recording depends on redaction helpers in `cli_history.py` and persistence methods in `StateStore`.
+- Config alias handling relies on `pydantic` `AliasChoices`; introducing new keys requires model + docs updates.
 
-## Navigation For Maintainers
+## Navigation for Maintainers
 
-- Auth issues: `src/rsspot/auth.py`, `src/rsspot/client.py`
-- Profile file parsing issues: `src/rsspot/config/loader.py`, `src/rsspot/config/models.py`
-- CLI parsing/flags: `src/rsspot/cli.py`
-- Endpoint request shape mismatches: corresponding file in `src/rsspot/services/`
+- Auth/token refresh issues: `src/rsspot/auth.py`, `src/rsspot/client/async_client.py`
+- Config migration/precedence issues: `src/rsspot/config/loader.py`, `src/rsspot/config/models.py`
+- Retry/cache behavior: `src/rsspot/http/transport.py`, `src/rsspot/http/cache.py`
+- CLI parsing/history/defaults: `src/rsspot/cli.py`, `src/rsspot/cli_history.py`
+- VM registration state transitions: `src/rsspot/workflows/registration.py`

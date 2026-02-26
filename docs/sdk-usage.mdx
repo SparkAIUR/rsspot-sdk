@@ -1,62 +1,90 @@
 Use this page when integrating `rsspot` into Python services, workers, or automation scripts.
 
-## Client Construction Patterns
+## Client Surfaces
+
+| Client | Purpose |
+|---|---|
+| `SpotClient` | Unified sync + async methods on one object |
+| `AsyncSpotClient` | Explicit async-only usage |
+
+## Construction Patterns
 
 | Pattern | Use when | Notes |
 |---|---|---|
-| `get_client(..., singleton=True)` (default) | Process-level reuse is desired | Cached by `(config_file, profile)` key |
-| `get_client(..., singleton=False)` | You need an isolated client | Creates a fresh `SpotClient` |
-| `SpotClient(...)` directly | Full explicit runtime control | Useful for dependency injection and tests |
+| `get_client(...)` | Process-level reuse for unified client | Singleton cache keyed by `(profile, org, region)` |
+| `get_async_client(...)` | Process-level reuse for async-only client | Singleton cache keyed by `(profile, org, region)` |
+| `SpotClient(...)` | Explicit lifecycle control | Call `close()` / `aclose()` |
+| `AsyncSpotClient(...)` | Explicit async lifecycle | Use `async with` or `await aclose()` |
 
-## Singleton vs Explicit Lifecycle
-
-### Singleton helper
-
-```python
-from rsspot import get_client
-
-client = get_client(profile="prod")
-orgs = await client.organizations.list()
-```
-
-Use `clear_client_cache()` to reset cached references and `aclose_all_clients()` when shutting down long-lived processes.
-
-### Explicit async lifecycle
+## Unified Sync/Async Pattern
 
 ```python
-from rsspot.client import SpotClient
+from rsspot import SpotClient
 
-async with SpotClient(profile="prod") as client:
-    classes = await client.server_classes.list(region="us-central-dfw-1")
-    print(classes[0].name)
+client = SpotClient(profile="prod")
+
+# Sync
+orgs = client.organizations.list()
+
+# Async on same object
+orgs_async = await client.aorganizations.list()
+
+await client.aclose()
 ```
 
-`SpotClient` owns an `httpx.AsyncClient` unless you inject `http_client=`; call `aclose()` (or use `async with`) when you own lifecycle.
+## Async-only Pattern
 
-## Organization Resolution Semantics
+```python
+import asyncio
+from rsspot import AsyncSpotClient
 
-`org` selectors can be either name (`sparkai`) or id (`org-...` / `org_...`).
+async def main() -> None:
+    async with AsyncSpotClient(profile="prod") as client:
+        regions = await client.regions.list()
+        print([r.name for r in regions])
 
-- `resolve_org_id()` behavior:
-  - id input is normalized (`org_abc` -> `org-abc`, lowercased)
-  - name input triggers organization lookup, then caches mapping
-- `resolve_org_name()` behavior:
-  - name input returns directly
-  - id input resolves and caches org name
+asyncio.run(main())
+```
 
-This means service calls that require namespace ids can accept human-friendly org names safely.
+## Singleton and Context Helpers
 
-## Auth + Retry Behavior
+```python
+from rsspot import get_client, use_profile, use_region
 
-Request flow in `_request_json()`:
+default_client = get_client(profile="prod")
 
-1. Add `Authorization: Bearer <id_token>` when authenticated request.
-2. Reuse existing token if JWT `exp` is still valid (with 60s skew).
-3. On `401/403`, force one refresh attempt.
-4. Retry transient failures (`429` and `5xx`) with exponential backoff:
-   - attempts = `max_retries + 1`
-   - delay = `retry_backoff_factor * 2^(attempt-1)`
-5. Raise typed errors on failure (`AuthError`, `APIError`, `RequestError`).
+with use_profile("staging"), use_region("us-east-iad-1"):
+    scoped = get_client()
+    print(scoped.regions.list())
+```
+
+Persistent defaults:
+- `set_default_profile(...)`
+- `set_default_org(...)`
+- `set_default_region(...)`
+
+## Auth, Retry, and Cache Behavior
+
+- `authenticate()` reuses valid JWT id tokens by expiry check
+- On auth failure (`401/403`), one forced refresh retry is attempted
+- Retry policy is configurable via `RetryConfig` (attempts, delays, jitter, statuses)
+- GET requests can be cached via `CacheConfig` in sqlite + in-memory front cache
+
+## State and Workflow Primitives
+
+`StateStore` provides persistent state operations for:
+- preferences
+- HTTP cache
+- command history
+- registration ledger
+
+`RegistrationWorkflow` provides idempotent VM registration state transitions:
+- discovered
+- token issued
+- submitted
+- registered
+- failed
+- skipped
 
 ## Error Handling Pattern
 
@@ -64,33 +92,15 @@ Request flow in `_request_json()`:
 from rsspot.errors import APIError, AuthError, ConfigError, RequestError
 
 try:
-    async with SpotClient(profile="prod") as client:
-        await client.inventory.list_organization_events(limit=50)
-except ConfigError as exc:
-    # missing profile / org selection
+    client = SpotClient(profile="prod")
+    events = client.inventory.list_organization_events(limit=50)
+    client.close()
+except ConfigError:
     ...
-except AuthError as exc:
-    # refresh token missing/invalid or token endpoint failure
+except AuthError:
     ...
-except APIError as exc:
-    # non-2xx upstream response with status + response body
+except APIError:
     ...
-except RequestError as exc:
-    # transport or payload decode failures
+except RequestError:
     ...
 ```
-
-## Service Surface
-
-`SpotClient` exposes typed service accessors:
-
-- `organizations`
-- `regions`
-- `server_classes`
-- `pricing`
-- `cloudspaces`
-- `spot_nodepools`
-- `ondemand_nodepools`
-- `inventory`
-
-Each method returns typed Pydantic models from `src/rsspot/models/*`.
