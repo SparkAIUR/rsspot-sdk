@@ -8,7 +8,15 @@ from pathlib import Path
 import httpx
 import pytest
 
-from rsspot.client import SpotClient, aclose_all_clients, clear_client_cache, get_client
+from rsspot.client import (
+    AsyncSpotClient,
+    SpotClient,
+    aclose_all_clients,
+    clear_client_cache,
+    configure,
+    get_client,
+)
+from rsspot.config import RetryConfig
 
 
 def _jwt_with_exp(expiry: datetime) -> str:
@@ -21,10 +29,23 @@ def _jwt_with_exp(expiry: datetime) -> str:
     return f"{encode(header)}.{encode(payload)}.signature"
 
 
+def _config(url: str = "https://spot.rackspace.com") -> dict[str, object]:
+    return {
+        "default_profile": "default",
+        "profiles": {
+            "default": {
+                "base_url": url,
+                "oauth_url": url,
+            }
+        },
+    }
+
+
 @pytest.mark.asyncio
-async def test_request_fetches_token_and_calls_api() -> None:
+async def test_async_request_fetches_token_and_calls_api(tmp_path: Path) -> None:
     future_token = _jwt_with_exp(datetime.now(UTC) + timedelta(minutes=5))
     seen: dict[str, int] = {"oauth": 0, "orgs": 0}
+    state_path = tmp_path / "state.db"
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -40,27 +61,25 @@ async def test_request_fetches_token_and_calls_api() -> None:
         return httpx.Response(404, json={"message": "not found"})
 
     transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(
-        base_url="https://spot.rackspace.com",
-        transport=transport,
-    ) as http_client:
-        client = SpotClient(
+    async with httpx.AsyncClient(base_url="https://spot.rackspace.com", transport=transport) as http_client:
+        client = AsyncSpotClient(
+            config=_config(),
             refresh_token="refresh-token",
-            oauth_url="https://spot.rackspace.com",
+            state_path=state_path,
             http_client=http_client,
-            config_file="/nonexistent.yaml",
-            max_retries=0,
         )
         response = await client.organizations.list()
         assert len(response.organizations) == 1
         assert seen["oauth"] == 1
         assert seen["orgs"] == 1
+        await client.aclose()
 
 
 @pytest.mark.asyncio
-async def test_request_retries_on_5xx() -> None:
+async def test_async_request_retries_on_5xx(tmp_path: Path) -> None:
     future_token = _jwt_with_exp(datetime.now(UTC) + timedelta(minutes=5))
     counter = {"regions": 0}
+    state_path = tmp_path / "state.db"
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -77,63 +96,90 @@ async def test_request_retries_on_5xx() -> None:
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(base_url="https://spot.rackspace.com", transport=transport) as http_client:
-        client = SpotClient(
+        client = AsyncSpotClient(
+            config=_config(),
             refresh_token="refresh-token",
-            oauth_url="https://spot.rackspace.com",
+            retries=RetryConfig(max_attempts=2, base_delay=0.0, max_delay=0.0, jitter=0.0),
+            state_path=state_path,
             http_client=http_client,
-            config_file="/nonexistent.yaml",
-            max_retries=2,
-            retry_backoff_factor=0.001,
         )
         regions = await client.regions.list()
         assert len(regions) == 1
         assert counter["regions"] == 2
+        await client.aclose()
 
 
-@pytest.mark.asyncio
-async def test_resolve_org_id_from_name() -> None:
+def test_unified_sync_client_method(tmp_path: Path) -> None:
     future_token = _jwt_with_exp(datetime.now(UTC) + timedelta(minutes=5))
+    state_path = tmp_path / "state.db"
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
             return httpx.Response(200, json={"id_token": future_token})
         if request.url.path == "/apis/auth.ngpc.rxt.io/v1/organizations":
-            return httpx.Response(
-                200,
-                json={"organizations": [{"name": "sparkai", "id": "org-gzvcn7fap0t1msep"}]},
-            )
+            return httpx.Response(200, json={"organizations": [{"name": "sparkai", "id": "org-1"}]})
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.AsyncClient(base_url="https://spot.rackspace.com", transport=transport)
+    try:
+        client = SpotClient(
+            config=_config(),
+            refresh_token="refresh-token",
+            state_path=state_path,
+            http_client=http_client,
+        )
+        payload = client.organizations.list()
+        assert payload.organizations[0].name == "sparkai"
+        client.close()
+    finally:
+        import asyncio
+
+        asyncio.run(http_client.aclose())
+
+
+@pytest.mark.asyncio
+async def test_unified_sync_methods_fail_inside_event_loop(tmp_path: Path) -> None:
+    future_token = _jwt_with_exp(datetime.now(UTC) + timedelta(minutes=5))
+    state_path = tmp_path / "state.db"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"id_token": future_token})
+        if request.url.path == "/apis/auth.ngpc.rxt.io/v1/organizations":
+            return httpx.Response(200, json={"organizations": [{"name": "sparkai", "id": "org-1"}]})
         return httpx.Response(404, json={})
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(base_url="https://spot.rackspace.com", transport=transport) as http_client:
         client = SpotClient(
+            config=_config(),
             refresh_token="refresh-token",
-            oauth_url="https://spot.rackspace.com",
+            state_path=state_path,
             http_client=http_client,
-            config_file="/nonexistent.yaml",
         )
-        org_id = await client.resolve_org_id("sparkai")
-        assert org_id == "org-gzvcn7fap0t1msep"
+        with pytest.raises(RuntimeError, match="active event loop"):
+            _ = client.organizations.list()
+        await client.aclose()
 
 
 def test_singleton_client_cache(tmp_path: Path) -> None:
-    cfg = tmp_path / "config.yaml"
-    cfg.write_text("profiles: {}\n", encoding="utf-8")
-    c1 = get_client(config_file=cfg, profile="default", singleton=True)
-    c2 = get_client(config_file=cfg, profile="default", singleton=True)
+    state_path = tmp_path / "state.db"
+    configure(config=_config(), state_path=state_path)
+    c1 = get_client(profile="default")
+    c2 = get_client(profile="default")
     assert c1 is c2
     clear_client_cache()
-    c3 = get_client(config_file=cfg, profile="default", singleton=True)
+    c3 = get_client(profile="default")
     assert c3 is not c1
 
 
 @pytest.mark.asyncio
 async def test_close_all_clients_clears_registry(tmp_path: Path) -> None:
-    cfg = tmp_path / "config.yaml"
-    cfg.write_text("profiles: {}\n", encoding="utf-8")
-    _ = get_client(config_file=cfg, profile="default", singleton=True)
+    state_path = tmp_path / "state.db"
+    configure(config=_config(), state_path=state_path)
+    _ = get_client(profile="default")
     await aclose_all_clients()
-    # Should create a new instance after registry close.
-    c_new = get_client(config_file=cfg, profile="default", singleton=True)
+    c_new = get_client(profile="default")
     assert c_new is not None
     await aclose_all_clients()

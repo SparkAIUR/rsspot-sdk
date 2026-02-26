@@ -2,22 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rsspot.config.loader import dump_config, load_config
+from rsspot.config.loader import default_config_candidates, load_config, save_config
 from rsspot.config.models import ProfileConfig, SDKConfig
-from rsspot.constants import DEFAULT_CONFIG_FILE
 from rsspot.errors import ConfigError
 
 
 class ProfileManager:
-    """Manage multi-account SDK profiles persisted to file.
-
-    Example:
-        >>> mgr = ProfileManager()
-        >>> _ = mgr.list_profiles()
-    """
+    """Manage multi-account SDK profiles persisted to file."""
 
     def __init__(self, config_file: str | Path | None = None) -> None:
-        raw = Path(config_file or DEFAULT_CONFIG_FILE).expanduser()
+        self._explicit = config_file is not None
+        raw = Path(config_file).expanduser() if config_file else default_config_candidates()[0].expanduser()
         self._path = raw
 
     @property
@@ -25,10 +20,16 @@ class ProfileManager:
         return self._path
 
     def load(self) -> SDKConfig:
-        return load_config(self._path)
+        if self._explicit:
+            resolved = load_config(config_path=self._path)
+        else:
+            resolved = load_config()
+            if resolved.path is not None:
+                self._path = resolved.path
+        return resolved.data
 
     def save(self, config: SDKConfig) -> None:
-        dump_config(config, self._path)
+        self._path = save_config(config, path=self._path)
 
     def list_profiles(self) -> list[str]:
         cfg = self.load()
@@ -36,7 +37,7 @@ class ProfileManager:
 
     def get_profile(self, name: str | None = None) -> ProfileConfig:
         cfg = self.load()
-        profile_name = name or cfg.active_profile or "default"
+        profile_name = name or cfg.default_profile or cfg.active_profile or "default"
         profile = cfg.profiles.get(profile_name)
         if profile is None:
             raise ConfigError(
@@ -47,8 +48,9 @@ class ProfileManager:
     def upsert_profile(self, name: str, profile: ProfileConfig, *, activate: bool = False) -> SDKConfig:
         cfg = self.load()
         cfg.profiles[name] = profile
-        if activate or not cfg.active_profile:
+        if activate or (not cfg.active_profile and not cfg.default_profile):
             cfg.active_profile = name
+            cfg.default_profile = name
         self.save(cfg)
         return cfg
 
@@ -57,6 +59,7 @@ class ProfileManager:
         if name not in cfg.profiles:
             raise ConfigError(f"profile '{name}' not found in {self._path}")
         cfg.active_profile = name
+        cfg.default_profile = name
         self.save(cfg)
         return cfg
 
@@ -67,5 +70,7 @@ class ProfileManager:
         del cfg.profiles[name]
         if cfg.active_profile == name:
             cfg.active_profile = next(iter(cfg.profiles), None)
+        if cfg.default_profile == name:
+            cfg.default_profile = cfg.active_profile
         self.save(cfg)
         return cfg

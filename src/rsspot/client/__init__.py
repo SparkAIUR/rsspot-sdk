@@ -1,6 +1,7 @@
-from rsspot.client import (
-    AsyncSpotClient,
-    SpotClient,
+"""Client entrypoints."""
+
+from rsspot.client.async_client import AsyncSpotClient
+from rsspot.client.singleton import (
     aclose_all_clients,
     clear_client_cache,
     configure,
@@ -16,31 +17,11 @@ from rsspot.client import (
     use_profile,
     use_region,
 )
-from rsspot.config.models import CacheConfig, Preferences, ProfileConfig, RetryConfig, SDKConfig
-from rsspot.state import StateStore
-from rsspot.workflows import (
-    RegistrationCandidate,
-    RegistrationLedgerRecord,
-    RegistrationStatus,
-    RegistrationWorkflow,
-)
-
-__version__ = "0.2.0"
+from rsspot.client.sync_client import SpotClient
 
 __all__ = [
-    "__version__",
     "AsyncSpotClient",
-    "CacheConfig",
-    "Preferences",
-    "ProfileConfig",
-    "RetryConfig",
-    "SDKConfig",
-    "StateStore",
     "SpotClient",
-    "RegistrationCandidate",
-    "RegistrationLedgerRecord",
-    "RegistrationStatus",
-    "RegistrationWorkflow",
     "aclose_all_clients",
     "clear_client_cache",
     "configure",

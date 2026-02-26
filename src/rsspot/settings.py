@@ -25,7 +25,7 @@ class RuntimeSettings(BaseSettings):
 
     config_file: Path = Field(
         default=Path(DEFAULT_CONFIG_FILE).expanduser(),
-        validation_alias=AliasChoices("RSSPOT_CONFIG_FILE", "SPOT_CONFIG_FILE"),
+        validation_alias=AliasChoices("RSSPOT_CONFIG", "RSSPOT_CONFIG_FILE", "SPOT_CONFIG_FILE"),
     )
     profile: str | None = Field(
         default=None,

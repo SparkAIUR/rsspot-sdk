@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
@@ -9,7 +10,18 @@ from typing import Annotated, Any, TypeVar
 import typer
 from pydantic import SecretStr
 
-from rsspot.client import SpotClient
+from rsspot.cli_history import HISTORY_MAX_ENTRIES, redact_argv, redacted_command
+from rsspot.client import (
+    AsyncSpotClient,
+    get_client,
+    set_default_org,
+    set_default_profile,
+    set_default_region,
+)
+from rsspot.client import (
+    configure as configure_client,
+)
+from rsspot.config import load_config
 from rsspot.config.manager import ProfileManager
 from rsspot.config.models import ProfileConfig
 from rsspot.constants import DEFAULT_CLIENT_ID
@@ -30,6 +42,8 @@ inventory_app = typer.Typer(no_args_is_help=True, help="Inventory APIs")
 nodepools_app = typer.Typer(no_args_is_help=True, help="Nodepool APIs")
 spot_pools_app = typer.Typer(no_args_is_help=True, help="Spot nodepool APIs")
 ondemand_pools_app = typer.Typer(no_args_is_help=True, help="On-demand nodepool APIs")
+config_app = typer.Typer(no_args_is_help=True, help="Config and preference commands")
+config_history_app = typer.Typer(no_args_is_help=True, help="CLI history preferences")
 
 app.add_typer(profiles_app, name="profiles")
 app.add_typer(organizations_app, name="organizations")
@@ -39,6 +53,8 @@ app.add_typer(pricing_app, name="pricing")
 app.add_typer(cloudspaces_app, name="cloudspaces")
 app.add_typer(inventory_app, name="inventory")
 app.add_typer(nodepools_app, name="nodepools")
+app.add_typer(config_app, name="config")
+config_app.add_typer(config_history_app, name="history")
 nodepools_app.add_typer(spot_pools_app, name="spot")
 nodepools_app.add_typer(ondemand_pools_app, name="ondemand")
 
@@ -86,8 +102,74 @@ def _parse_key_values(entries: list[str]) -> dict[str, str]:
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo("rsspot 0.1.0")
+        typer.echo("rsspot 0.2.0")
         raise typer.Exit()
+
+
+def _in_completion_context() -> bool:
+    return "_RSSPOT_COMPLETE" in os.environ or "RSSPOT_COMPLETE" in os.environ
+
+
+def _record_history(ctx: typer.Context, state: CLIState) -> None:
+    if _in_completion_context():
+        return
+
+    args = ["rsspot", *ctx.args]
+    if len(args) <= 1:
+        return
+
+    try:
+        client = get_client(profile=state.profile)
+        redacted_argv = redact_argv(args)
+        command = redacted_command(args)
+        client.state.history_add(
+            command=command,
+            argv=redacted_argv,
+            profile=client.profile_name,
+            org=None,
+            region=None,
+            max_entries=HISTORY_MAX_ENTRIES,
+        )
+    except Exception:
+        return
+
+
+_CONFIG_REDACTED = "<redacted>"
+_SENSITIVE_CONFIG_KEY_MARKERS = (
+    "token",
+    "secret",
+    "password",
+    "passphrase",
+    "private_key",
+    "service_account_key",
+    "cert",
+    "authorization",
+    "header",
+    "cookie",
+    "jwt",
+    "signature",
+)
+
+
+def _is_sensitive_config_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(marker in lowered for marker in _SENSITIVE_CONFIG_KEY_MARKERS)
+
+
+def _redact_sensitive_config(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, item in value.items():
+            if _is_sensitive_config_key(str(key)):
+                redacted[str(key)] = _CONFIG_REDACTED
+            else:
+                redacted[str(key)] = _redact_sensitive_config(item)
+        return redacted
+
+    if isinstance(value, list):
+        return [_redact_sensitive_config(item) for item in value]
+
+    return value
 
 
 @app.callback()
@@ -105,11 +187,14 @@ def main(
     ] = None,
 ) -> None:
     _ = version
-    ctx.obj = CLIState(profile=profile, config_file=config_file, output=output)
+    configure_client(config_path=config_file)
+    state = CLIState(profile=profile, config_file=config_file, output=output)
+    ctx.obj = state
+    _record_history(ctx, state)
 
 
-def _make_client(state: CLIState) -> SpotClient:
-    return SpotClient(profile=state.profile, config_file=state.config_file)
+def _make_client(state: CLIState) -> AsyncSpotClient:
+    return AsyncSpotClient(profile=state.profile, config_path=state.config_file)
 
 
 @app.command("configure")
@@ -658,6 +743,59 @@ def ondemand_pools_delete(
             return await client.ondemand_nodepools.delete(name, org=org)
 
     _emit(_run(run()), output=state.output)
+
+
+@config_app.command("info")
+def config_info(ctx: typer.Context) -> None:
+    state = _state(ctx)
+    cfg = load_config(config_path=state.config_file)
+    client = get_client(profile=state.profile)
+    payload = _redact_sensitive_config(cfg.data.model_dump(mode="json"))
+    payload["_source"] = cfg.source
+    payload["_path"] = str(cfg.path) if cfg.path else None
+    payload["_state"] = {
+        "history_count": client.state.history_count(),
+        "history_max_entries": HISTORY_MAX_ENTRIES,
+    }
+    _emit(payload, output=state.output)
+
+
+@config_app.command("set-default-profile")
+def config_set_default_profile(name: str) -> None:
+    set_default_profile(name)
+    typer.echo(f"default profile set to {name}")
+
+
+@config_app.command("set-default-org")
+def config_set_default_org(name: str) -> None:
+    set_default_org(name)
+    typer.echo(f"default org set to {name}")
+
+
+@config_app.command("set-default-region")
+def config_set_default_region(name: str) -> None:
+    set_default_region(name)
+    typer.echo(f"default region set to {name}")
+
+
+@config_history_app.command("info")
+def config_history_info(ctx: typer.Context) -> None:
+    state = _state(ctx)
+    client = get_client(profile=state.profile)
+    payload = {
+        "enabled": True,
+        "max_entries": HISTORY_MAX_ENTRIES,
+        "count": client.state.history_count(),
+    }
+    _emit(payload, output=state.output)
+
+
+@config_history_app.command("clear")
+def config_history_clear(ctx: typer.Context) -> None:
+    state = _state(ctx)
+    client = get_client(profile=state.profile)
+    client.state.history_clear()
+    typer.echo("cleared command history")
 
 
 @app.command("raw")
